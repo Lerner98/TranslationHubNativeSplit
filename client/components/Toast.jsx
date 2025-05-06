@@ -1,4 +1,3 @@
-// components/Toast.jsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import Constants from '../utils/Constants';
@@ -22,18 +21,29 @@ const Toast = ({ message, visible, onHide }) => {
         }).start(() => {
           onHide();
         });
-      }, 3000);
+      }, Constants.TOAST_DURATION);
 
       return () => clearTimeout(timer);
     }
   }, [visible, fadeAnim, onHide]);
 
-  if (!message) return null;
+  const getSafeMessage = () => {
+    try {
+      if (!message) return '';
+      if (typeof message === 'string') return message;
+      if (message instanceof Error && message.message) return message.message;
+      if (React.isValidElement(message)) return '[Invalid React element passed as message]';
+      if (Array.isArray(message)) return '[Array passed as message]';
+      return JSON.stringify(message);
+    } catch {
+      return '[Unrenderable message]';
+    }
+  };
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.messageContainer}>
-        <Text style={styles.messageText}>{message}</Text>
+        <Text style={styles.messageText}>{getSafeMessage()}</Text>
       </View>
     </Animated.View>
   );

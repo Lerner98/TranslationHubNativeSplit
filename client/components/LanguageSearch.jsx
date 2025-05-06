@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Keyboard,
+} from 'react-native';
 import { useTranslation } from '../utils/TranslationContext';
 import { useSession } from '../utils/ctx';
 import useLanguageStore from '../stores/LanguageStore';
@@ -12,6 +21,7 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
   const { session } = useSession();
   const { languages, fetchLanguages, isLoading, error } = useLanguageStore();
   const { isDarkMode } = useThemeStore();
+
   const [displayValue, setDisplayValue] = useState('');
   const [filteredLanguages, setFilteredLanguages] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -19,7 +29,7 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
 
   useEffect(() => {
     fetchLanguages();
-  }, [fetchLanguages]);
+  }, []);
 
   useEffect(() => {
     if (error) {
@@ -27,19 +37,13 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
       return;
     }
     if (languages.length > 0) {
-      setFilteredLanguages(languages);
+      setFilteredLanguages(languages.slice(0, 8));
       if (selectedLanguage) {
         const selectedLang = languages.find((lang) => lang.code === selectedLanguage);
         if (selectedLang) {
           setSelectedLanguageName(selectedLang.name);
           setDisplayValue(selectedLang.name);
-        } else {
-          setSelectedLanguageName('');
-          setDisplayValue('');
         }
-      } else {
-        setSelectedLanguageName('');
-        setDisplayValue('');
       }
     }
   }, [languages, error, selectedLanguage]);
@@ -56,14 +60,11 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
   const handleSearchChange = (text) => {
     setDisplayValue(text);
     setIsDropdownOpen(true);
-    if (text) {
-      const filtered = languages
-        .filter((lang) => lang.name.toLowerCase().startsWith(text.toLowerCase()))
-        .slice(0, 8);
-      setFilteredLanguages(filtered);
-    } else {
-      setFilteredLanguages(languages.slice(0, 8));
-    }
+    const normalized = text.toLowerCase();
+    const filtered = languages
+      .filter((lang) => lang.name.toLowerCase().startsWith(normalized))
+      .slice(0, 8);
+    setFilteredLanguages(text ? filtered : languages.slice(0, 8));
   };
 
   const handleSelectLanguage = (lang) => {
@@ -77,20 +78,20 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
 
   const handleFocus = () => {
     setDisplayValue('');
-    setIsDropdownOpen(false);
-  };
-
-  const handleOutsidePress = () => {
-    setIsDropdownOpen(false);
-    setDisplayValue(selectedLanguageName);
-    Keyboard.dismiss();
+    setIsDropdownOpen(true);
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.inputWrapper}>
         <TextInput
-          style={[styles.input, { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD, color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}
+          style={[
+            styles.input,
+            {
+              backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD,
+              color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT,
+            },
+          ]}
           placeholder={t('searchLanguages')}
           placeholderTextColor={isDarkMode ? '#888' : '#999'}
           value={displayValue}
@@ -99,31 +100,58 @@ const LanguageSearch = ({ onSelectLanguage, selectedLanguage }) => {
           accessibilityLabel="Search languages"
         />
       </View>
+
       {error ? (
         <Text style={[styles.error, { color: Constants.COLORS.DESTRUCTIVE }]}>{error}</Text>
       ) : isLoading ? (
-        <ActivityIndicator size="small" color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY} style={styles.loading} />
+        <ActivityIndicator
+          size="small"
+          color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY}
+          style={styles.loading}
+        />
       ) : isDropdownOpen ? (
         <View style={styles.dropdownContainer}>
           {filteredLanguages.length === 0 ? (
-            <Text style={[styles.noResults, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>{t('noLanguagesFound')}</Text>
+            <Text
+              style={[
+                styles.noResults,
+                {
+                  color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT,
+                },
+              ]}
+            >
+              {t('noLanguagesFound')}
+            </Text>
           ) : (
             <FlatList
               data={filteredLanguages}
               keyExtractor={(item) => item.code}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.item, { backgroundColor: isDarkMode ? '#444' : Constants.COLORS.CARD }]}
+                  style={[
+                    styles.item,
+                    {
+                      backgroundColor: isDarkMode ? '#444' : Constants.COLORS.CARD,
+                    },
+                  ]}
                   onPress={() => handleSelectLanguage(item)}
                   accessibilityLabel={`Select language ${item.name}`}
                 >
-                  <Text style={[styles.itemText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>
+                  <Text
+                    style={[
+                      styles.itemText,
+                      {
+                        color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT,
+                      },
+                    ]}
+                  >
                     {item.name}
                   </Text>
                 </TouchableOpacity>
               )}
               style={styles.list}
               nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
             />
           )}
         </View>
@@ -141,7 +169,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   input: {
-    width: '100%', // Ensure the input takes the full width of its parent (languageSection)
+    width: '100%',
     padding: Constants.SPACING.MEDIUM,
     borderRadius: 10,
     fontSize: Constants.FONT_SIZES.BODY,

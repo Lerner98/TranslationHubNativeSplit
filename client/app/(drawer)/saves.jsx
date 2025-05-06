@@ -10,57 +10,46 @@ import { useRouter } from 'expo-router';
 import Constants from '../../utils/Constants';
 import Helpers from '../../utils/Helpers';
 import useThemeStore from '../../stores/ThemeStore';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome } from '@expo/vector-icons';
 
-// Utility function to retry an async operation
 const retry = async (fn, retries = 5, delay = 2000) => {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn();
     } catch (err) {
-      if (i === retries - 1) throw err; // Last retry failed, throw the error
-      console.log(`Retry attempt ${i + 1} failed, retrying in ${delay}ms...`);
+      if (i === retries - 1) throw err;
+      __DEV__ && console.log(`Retry attempt ${i + 1} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 };
 
-// Separate functional component for rendering each translation item
 const TranslationItem = ({ item, isDarkMode, onDelete, t, locale }) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const onDeletePress = () => {
-    if (isDeleting) {
-      console.log('Deletion already in progress for item:', item.id);
-      return;
-    }
+    if (isDeleting) return;
     setIsDeleting(true);
     onDelete(item.id, () => setIsDeleting(false));
   };
 
   return (
     <View style={[styles.translationItem, { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD }]}>
-      <View style={[styles.translationContent, { pointerEvents: 'box-none' }]}>
-        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
+      <View style={[styles.translationContent]}>
+        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}> 
           {t('original', { defaultValue: 'Original Text' })}: {item.original_text}
         </Text>
-        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
+        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}> 
           {t('translated', { defaultValue: 'Translated Text' })}: {item.translated_text}
         </Text>
-        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
+        <Text style={[styles.translationText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}> 
           {t('createdAt', { defaultValue: 'Created At' })}: {Helpers.formatDate(item.created_at, locale)}
         </Text>
       </View>
       <Pressable
-        onPressIn={() => console.log('Pressable onPressIn triggered for item:', item.id)}
-        onPressOut={() => console.log('Pressable onPressOut triggered for item:', item.id)}
         onPress={onDeletePress}
-        style={({ pressed }) => [
-          styles.deleteButtonWrapper,
-          { opacity: pressed ? 0.7 : 1 },
-        ]}
+        style={({ pressed }) => [styles.deleteButtonWrapper, { opacity: pressed ? 0.7 : 1 }]}
         hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
         accessibilityLabel="Delete translation"
       >
@@ -73,7 +62,15 @@ const TranslationItem = ({ item, isDarkMode, onDelete, t, locale }) => {
 const SavesScreen = () => {
   const { t, locale } = useTranslation();
   const { session } = useSession();
-  const { savedTextTranslations, guestTranslations, fetchTranslations, clearTranslations, clearGuestTranslations, isLoading, error } = useTranslationStore();
+  const {
+    savedTextTranslations,
+    guestTranslations,
+    fetchTranslations,
+    clearTranslations,
+    clearGuestTranslations,
+    isLoading,
+    error,
+  } = useTranslationStore();
   const setTranslationStore = useTranslationStore.setState;
   const { isDarkMode } = useThemeStore();
   const [toastVisible, setToastVisible] = useState(false);
@@ -81,12 +78,10 @@ const SavesScreen = () => {
 
   useEffect(() => {
     let isMounted = true;
-
     const loadTranslations = async () => {
       if (session && isMounted) {
         try {
           await fetchTranslations(session);
-          console.log('Fetched translations:', savedTextTranslations);
         } catch (err) {
           if (isMounted) {
             setTranslationStore({ error: t('error') + ': ' + Helpers.handleError(err) });
@@ -95,70 +90,46 @@ const SavesScreen = () => {
         }
       }
     };
-
     loadTranslations();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [session, fetchTranslations, t]);
 
   const handleDeleteTranslation = (id, onComplete) => {
-    console.log('handleDeleteTranslation called with id:', id);
     Alert.alert(
       t('deleteTranslation', { defaultValue: 'Delete Translation' }),
       t('areYouSure', { defaultValue: 'Are you sure?' }),
       [
-        { 
-          text: t('cancel', { defaultValue: 'Cancel' }), 
-          style: 'cancel',
-          onPress: () => {
-            console.log('Delete cancelled for id:', id);
-            onComplete();
-          }
-        },
+        { text: t('cancel', { defaultValue: 'Cancel' }), style: 'cancel', onPress: onComplete },
         {
           text: t('delete', { defaultValue: 'Delete' }),
           style: 'destructive',
           onPress: async () => {
-            console.log('Delete confirmed for id:', id);
             try {
               if (session) {
                 const translation = savedTextTranslations.find((item) => item.id === id);
                 if (translation) {
-                  console.log('Deleting translation from server for id:', id);
-                  console.log('Session token:', session.signed_session_id);
                   try {
-                    // Use DELETE to test with more logging
                     await retry(() =>
-                      axios.delete(`${Constants.API_URL}/translations/delete/${id}`, {
+                      fetch(`${Constants.API_URL}/translations/delete/${id}`, {
+                        method: 'DELETE',
                         headers: { Authorization: `Bearer ${session.signed_session_id}` },
-                        timeout: 10000,
                       })
                     );
-                    console.log('Server deletion successful');
                   } catch (serverErr) {
-                    console.error('Server deletion failed after retries:', serverErr.message, serverErr.response ? serverErr.response.data : 'No response data', serverErr.code, serverErr.config);
                     setToastVisible(true);
-                    setTranslationStore({ error: t('error') + ': Failed to delete from server (network error), removed locally. Please check your connection and try again.' });
+                    setTranslationStore({ error: t('error') + ': Failed to delete from server. Removed locally.' });
                   }
                   setTranslationStore((state) => ({
                     savedTextTranslations: state.savedTextTranslations.filter((item) => item.id !== id),
                   }));
                   await fetchTranslations(session);
-                  console.log('Translations refetched after deletion');
-                } else {
-                  console.log('Translation not found in savedTextTranslations:', id);
                 }
               } else {
-                console.log('Deleting translation for guest user with id:', id);
-                const updatedTranslations = guestTranslations.filter((item) => item.id !== id);
-                setTranslationStore({ guestTranslations: updatedTranslations });
-                await AsyncStorage.setItem('guestTranslations', JSON.stringify(updatedTranslations));
-                console.log('Guest translations updated in AsyncStorage');
+                const updated = guestTranslations.filter((item) => item.id !== id);
+                setTranslationStore({ guestTranslations: updated });
+                await AsyncStorage.setItem('guestTranslations', JSON.stringify(updated));
               }
             } catch (err) {
-              console.error('Deletion error:', err.message, err.response ? err.response.data : 'No response data');
               setTranslationStore({ error: t('error') + ': ' + Helpers.handleError(err) });
               setToastVisible(true);
             } finally {
@@ -210,24 +181,15 @@ const SavesScreen = () => {
       <FlatList
         data={translations}
         renderItem={({ item }) => (
-          <TranslationItem
-            item={item}
-            isDarkMode={isDarkMode}
-            onDelete={handleDeleteTranslation}
-            t={t}
-            locale={locale}
-          />
+          <TranslationItem item={item} isDarkMode={isDarkMode} onDelete={handleDeleteTranslation} t={t} locale={locale} />
         )}
-        keyExtractor={(item) => `${item.id}`}
+        keyExtractor={(item, index) => `${item.id || index}`}
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <Pressable
                 onPress={() => router.back()}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  { opacity: pressed ? 0.7 : 1 },
-                ]}
+                style={({ pressed }) => [styles.backButton, { opacity: pressed ? 0.7 : 1 }]}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityLabel="Go back"
               >
@@ -255,7 +217,7 @@ const SavesScreen = () => {
         }
         ListEmptyComponent={
           !isLoading && (
-            <Text style={[styles.noTranslations, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
+            <Text style={[styles.noTranslations, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}> 
               {t('noTranslations', { defaultValue: 'No saved translations found.' })}
             </Text>
           )
@@ -268,9 +230,7 @@ const SavesScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   scrollContent: {
     padding: Constants.SPACING.SECTION,
     paddingBottom: Constants.SPACING.SECTION * 2,

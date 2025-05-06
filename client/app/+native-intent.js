@@ -1,37 +1,53 @@
-// app/+native-intent.js
 import * as Linking from 'expo-linking';
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import AsyncStorageUtils from '../utils/AsyncStorage';
+import { useSession } from '../utils/ctx';
 
 export default function NativeIntentHandler() {
   const router = useRouter();
+  const { clearSession } = useSession(); // this must exist in your ctx
 
   useEffect(() => {
+    const resetSession = async () => {
+      await AsyncStorageUtils.removeItem('signed_session_id');
+      await AsyncStorageUtils.removeItem('user');
+      clearSession?.(); // optional safety
+    };
+
+    const deepLinkToTab = async (path, queryParams) => {
+      if (path === 'login' || path === 'register') {
+        await resetSession(); // force guest mode
+      }
+
+      switch (path) {
+        case 'login':
+          router.push('/(auth)/login');
+          break;
+        case 'register':
+          router.push('/(auth)/register');
+          break;
+        case 'translate':
+          if (queryParams?.text) {
+            router.push({
+              pathname: '/(drawer)/(tabs)/text-voice',
+              params: { text: queryParams.text },
+            });
+          } else {
+            router.push('/(drawer)/(tabs)/text-voice');
+          }
+          break;
+        default:
+          router.push('/(drawer)/(tabs)');
+          break;
+      }
+    };
+
     const handleUrl = ({ url }) => {
       try {
         const { path, queryParams } = Linking.parse(url);
         if (path) {
-          switch (path) {
-            case 'login':
-              router.push('/(auth)/login');
-              break;
-            case 'register':
-              router.push('/(auth)/register');
-              break;
-            case 'translate':
-              if (queryParams?.text) {
-                router.push({
-                  pathname: '/(drawer)/(tabs)/text-voice',
-                  params: { text: queryParams.text },
-                });
-              } else {
-                router.push('/(drawer)/(tabs)/text-voice');
-              }
-              break;
-            default:
-              router.push('/(drawer)/(tabs)');
-              break;
-          }
+          deepLinkToTab(path, queryParams);
         }
       } catch (err) {
         console.error('Error handling deep link:', err);
@@ -39,7 +55,6 @@ export default function NativeIntentHandler() {
       }
     };
 
-    // Handle initial URL when the app is opened
     Linking.getInitialURL()
       .then((url) => {
         if (url) handleUrl({ url });
@@ -48,11 +63,12 @@ export default function NativeIntentHandler() {
         console.error('Error getting initial URL:', err);
       });
 
-    // Add event listener for incoming URLs
     const subscription = Linking.addEventListener('url', handleUrl);
 
     return () => {
-      subscription.remove();
+      if (subscription?.remove) {
+        subscription.remove();
+      }
     };
   }, [router]);
 

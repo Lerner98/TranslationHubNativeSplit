@@ -1,55 +1,68 @@
-// utils/AsyncStorage.js
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const isSerializable = (value) => {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const AsyncStorageUtils = {
-  // Get an item from AsyncStorage
+  // 🔍 Get an item from AsyncStorage
   getItem: async (key) => {
     try {
       const value = await AsyncStorage.getItem(key);
-      if (value == null) return null;
+      if (value === null) return null;
+
       try {
         return JSON.parse(value);
-      } catch (parseError) {
-        // Handle non-JSON values (e.g., strings like 'dark' for theme)
+      } catch {
         return value;
       }
     } catch (error) {
-      const errorMessage = `Error getting item from AsyncStorage (${key}): ${error.message}`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+      const msg = `AsyncStorage.getItem('${key}') failed: ${error.message}`;
+      console.error(msg);
+      throw new Error(msg);
     }
   },
 
-  // Set an item in AsyncStorage
+  // 💾 Set an item in AsyncStorage (Safe serialization)
   setItem: async (key, value) => {
     try {
-      await AsyncStorage.setItem(key, JSON.stringify(value));
+      if (!isSerializable(value)) {
+        throw new Error(`Value for key '${key}' is not serializable.`);
+      }
+
+      const serialized = JSON.stringify(value);
+      await AsyncStorage.setItem(key, serialized);
     } catch (error) {
-      const errorMessage = `Error setting item in AsyncStorage (${key}): ${error.message}`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+      const msg = `AsyncStorage.setItem('${key}') failed: ${error.message}`;
+      console.error(msg);
+      throw new Error(msg);
     }
   },
 
-  // Remove an item from AsyncStorage
+  // ❌ Remove an item from AsyncStorage
   removeItem: async (key) => {
     try {
       await AsyncStorage.removeItem(key);
     } catch (error) {
-      const errorMessage = `Error removing item from AsyncStorage (${key}): ${error.message}`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+      const msg = `AsyncStorage.removeItem('${key}') failed: ${error.message}`;
+      console.error(msg);
+      throw new Error(msg);
     }
   },
 
-  // Clear all items from AsyncStorage
+  // 🧹 Clear all AsyncStorage
   clear: async () => {
     try {
       await AsyncStorage.clear();
     } catch (error) {
-      const errorMessage = `Error clearing AsyncStorage: ${error.message}`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+      const msg = `AsyncStorage.clear() failed: ${error.message}`;
+      console.error(msg);
+      throw new Error(msg);
     }
   },
 };

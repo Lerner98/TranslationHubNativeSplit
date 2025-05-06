@@ -1,18 +1,21 @@
-// app/(auth)/_layout.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
-import { useSession } from '../../utils/ctx';
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import Constants from '../../utils/Constants';
+import { useSession } from '../../utils/ctx';
 import useThemeStore from '../../stores/ThemeStore';
+import Constants from '../../utils/Constants';
 import Toast from '../../components/Toast';
 
 export default function AuthLayout() {
-  const { session, isLoading, isAuthLoading, error: sessionError } = useSession();
+  const { session, isLoading, isAuthLoading, error: sessionError, signOut, clearError } = useSession();
   const { isDarkMode } = useThemeStore();
   const [toastVisible, setToastVisible] = useState(false);
   const router = useRouter();
+
+  const resetAppSession = async () => {
+    await signOut();
+    router.replace('/welcome');
+  };
 
   useEffect(() => {
     if (sessionError) {
@@ -22,9 +25,15 @@ export default function AuthLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthLoading && session) {
-      router.replace('/(drawer)/(tabs)');
+      const hasValidToken = !!session?.signed_session_id;
+      const isCorrupted = !hasValidToken;
+  
+      if (isCorrupted) {
+        console.warn('Fake session detected - clearing..');
+        resetAppSession();
+      }
     }
-  }, [session, isLoading, isAuthLoading, router]);
+  }, [session, isLoading, isAuthLoading]);
 
   if (isLoading || isAuthLoading) {
     return (
@@ -38,31 +47,23 @@ export default function AuthLayout() {
     );
   }
 
-  if (sessionError) {
-    return (
-      <View
-        style={[styles.errorContainer, { backgroundColor: isDarkMode ? '#222' : Constants.COLORS.BACKGROUND }]}
-        accessibilityLabel="Authentication error"
-        accessibilityLiveRegion="assertive"
-      >
-        <Toast message={sessionError} visible={toastVisible} onHide={() => setToastVisible(false)} />
-      </View>
-    );
-  }
-
-  if (session) {
-    return null;
-  }
-
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+      </Stack>
+      {sessionError && (
+        <Toast
+          message={sessionError}
+          visible={toastVisible}
+          onHide={() => {
+            setToastVisible(false);
+            clearError(); // Clear sessionError to allow Stack to remain mounted
+          }}
+        />
+      )}
+    </View>
   );
 }
 
@@ -71,11 +72,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Constants.SPACING.SECTION,
   },
 });

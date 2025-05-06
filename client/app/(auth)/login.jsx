@@ -1,6 +1,5 @@
-// app/(auth)/login.jsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform, Alert } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from '../../utils/TranslationContext';
 import { useSession } from '../../utils/ctx';
@@ -9,10 +8,11 @@ import { useRouter } from 'expo-router';
 import Constants from '../../utils/Constants';
 import useThemeStore from '../../stores/ThemeStore';
 import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorageUtils from '../../utils/AsyncStorage';
 
 const LoginScreen = () => {
   const { t } = useTranslation();
-  const { signIn, isAuthLoading, error: sessionError } = useSession(); // Change login to signIn
+  const { signIn, isAuthLoading, error: sessionError, clearError } = useSession();
   const { isDarkMode } = useThemeStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,10 +20,12 @@ const LoginScreen = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const router = useRouter();
 
-  // Debug log to confirm signIn function is defined
   useEffect(() => {
-    console.log('LoginScreen: signIn function defined:', typeof signIn === 'function');
-  }, [signIn]);
+    if (sessionError) {
+      setError(sessionError);
+      setToastVisible(true);
+    }
+  }, [sessionError]);
 
   const handleLogin = async () => {
     setError('');
@@ -42,9 +44,10 @@ const LoginScreen = () => {
       setToastVisible(true);
       return;
     }
+
     try {
-      await signIn(email, password); // Change login to signIn
-      router.replace('/(drawer)/(tabs)'); // Simplified route
+      await signIn(email, password);
+      router.replace('/(drawer)/(tabs)');
     } catch (err) {
       setError(t('error') + ': ' + err.message);
       setToastVisible(true);
@@ -57,7 +60,6 @@ const LoginScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#1F1C2C' : '#F0F2F5' }]}>
-      {/* Header with only back arrow */}
       <View style={styles.headerContainer}>
         <Pressable
           onPress={goBack}
@@ -72,13 +74,16 @@ const LoginScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.formContainer, { backgroundColor: isDarkMode ? '#2C2C2E' : '#FFF' }]}>
           <Text style={[styles.title, { color: isDarkMode ? '#FFF' : '#333' }]}>{t('login')}</Text>
+
           {isAuthLoading && (
             <ActivityIndicator
               size="large"
               color={isDarkMode ? '#FFF' : Constants.COLORS.PRIMARY}
               style={styles.loading}
+              accessibilityLabel="Logging in"
             />
           )}
+
           <Text style={[styles.label, { color: isDarkMode ? '#AAA' : '#555' }]}>{t('email')}</Text>
           <TextInput
             style={[
@@ -97,6 +102,7 @@ const LoginScreen = () => {
             editable={!isAuthLoading}
             accessibilityLabel="Email input"
           />
+
           <Text style={[styles.label, { color: isDarkMode ? '#AAA' : '#555' }]}>{t('password')}</Text>
           <TextInput
             style={[
@@ -114,44 +120,62 @@ const LoginScreen = () => {
             editable={!isAuthLoading}
             accessibilityLabel="Password input"
           />
+
           <Pressable
             onPress={handleLogin}
             disabled={isAuthLoading}
             style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel="Login button"
           >
             <Text style={styles.buttonLabel}>{t('login')}</Text>
           </Pressable>
+
           <Pressable
-            onPress={() => router.push('/(auth)/register')} // Simplified route
+            onPress={() => router.push('/(auth)/register')}
             disabled={isAuthLoading}
             style={({ pressed }) => [styles.switchButton, { opacity: pressed ? 0.8 : 1 }]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel="Go to register screen"
           >
             <Text style={styles.switchText}>{t('register')}</Text>
           </Pressable>
+
           <Pressable
-            onPress={() => router.push('/(drawer)/(tabs)')} // Simplified route
+            onPress={async () => {
+              const token = await AsyncStorageUtils.getItem('signed_session_id');
+              if (!token) {
+                Alert.alert(
+                  'Not Logged In',
+                  'You are not logged in. Please log in or use "Continue as Guest" from the welcome screen.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                router.push('/(drawer)/(tabs)');
+              }
+            }}
             disabled={isAuthLoading}
             style={({ pressed }) => [styles.cancelButton, { opacity: pressed ? 0.8 : 1 }]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel="Go to home screen"
           >
             <Text style={styles.cancelText}>{t('goToHome')}</Text>
           </Pressable>
         </View>
       </ScrollView>
-      <Toast message={error || sessionError} visible={toastVisible} onHide={() => setToastVisible(false)} />
+
+      <Toast
+        message={(error || sessionError)?.toString?.() || ''}
+        visible={toastVisible}
+        onHide={() => {
+          setToastVisible(false);
+          clearError(); // Clear sessionError when toast is dismissed
+          setError(''); // Clear local error
+        }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -54,13 +54,12 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
   const [translationData, setTranslationData] = useState(null);
   const textInputRef = React.useRef(null);
   const router = useRouter();
-  const setTranslationStore = useTranslationStore.setState; // Access setState directly
+  const setTranslationStore = useTranslationStore.setState;
   const { signOut } = useSession();
-  const API_URL = Constants.API_URL; // Ensure this is defined in Constants
+  const API_URL = Constants.API_URL;
 
-  // Reset toastVisible when error changes, ensuring toast is only shown for specific cases
   useEffect(() => {
-    setToastVisible(false); // Reset toast visibility whenever error changes
+    setToastVisible(false);
   }, [error]);
 
   useEffect(() => {
@@ -69,12 +68,10 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
         if (Platform.OS === 'android') {
           const alreadyGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
           if (alreadyGranted) {
-            console.log('Audio permission already granted');
             setHasPermission(true);
             return;
           }
 
-          console.log('Requesting audio permission...');
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
             {
@@ -87,24 +84,19 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
           );
           if (granted === PermissionsAndroid.RESULTS.GRANTED) {
             setHasPermission(true);
-            console.log('Audio permission status: granted');
           } else {
             setError(t('error') + ': Audio permission not granted. Please enable it in your device settings.');
             setToastVisible(true);
             setHasPermission(false);
-            console.log('Audio permission status: denied');
           }
         } else {
           const { status } = await Audio.getPermissionsAsync();
           if (status === 'granted') {
-            console.log('Audio permission already granted');
             setHasPermission(true);
             return;
           }
 
-          console.log('Requesting audio permission...');
           const { status: newStatus } = await Audio.requestPermissionsAsync();
-          console.log('Audio permission status:', newStatus);
           if (newStatus !== 'granted') {
             setError(t('error') + ': Audio permission not granted. Please enable it in your device settings.');
             setToastVisible(true);
@@ -114,7 +106,6 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
           }
         }
       } catch (err) {
-        console.error('Failed to check/request audio permission:', err);
         setError(t('error') + ': Failed to request audio permission: ' + err.message);
         setToastVisible(true);
         setHasPermission(false);
@@ -162,8 +153,6 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
     }
 
     try {
-      console.log('Translating text:', textToTranslate);
-      // Pass an empty string as the token if the user is not logged in (guest mode)
       const token = session?.signed_session_id || '';
       const { translatedText: result, detectedLang } = await TranslationService.translateText(
         textToTranslate,
@@ -171,13 +160,11 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
         sourceLang,
         token
       );
-      console.log('Translation result:', result, 'Detected language:', detectedLang);
       if (!result) {
         throw new Error('Translation failed');
       }
       setTranslatedText(result);
 
-      // Store the translation data for manual saving
       const translation = {
         id: Date.now().toString(),
         fromLang: detectedLang,
@@ -188,11 +175,22 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
         type: isVoice ? 'voice' : 'text',
       };
       setTranslationData(translation);
+
+      // For guests, automatically add to recent history (guestTranslations) after translation
+      if (!session) {
+        setTranslationStore((state) => {
+          let updatedGuestTranslations = [...state.guestTranslations, translation];
+          // Limit to 5 recent entries for guests
+          if (updatedGuestTranslations.length > 5) {
+            updatedGuestTranslations = updatedGuestTranslations.slice(-5);
+          }
+          AsyncStorage.setItem('guestTranslations', JSON.stringify(updatedGuestTranslations));
+          return { guestTranslations: updatedGuestTranslations };
+        });
+      }
     } catch (err) {
-      console.error('Translation error:', err);
       const errorMessage = Helpers.handleError(err);
       if (errorMessage.includes('Invalid or expired session') && session) {
-        // Session is invalid or expired, log the user out
         await signOut();
         setError(t('error') + ': Your session has expired. Please log in again.');
         setToastVisible(true);
@@ -247,10 +245,8 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
           }
         });
       } catch (err) {
-        console.error('Text-to-speech error:', err);
         const errorMessage = Helpers.handleError(err);
         if (errorMessage.includes('Invalid or expired session') && session) {
-          // Session is invalid or expired, log the user out
           await signOut();
           setError(t('error') + ': Your session has expired. Please log in again.');
           setToastVisible(true);
@@ -290,12 +286,27 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
         await onAddTextTranslation(translationData, false, session?.signed_session_id);
       } else {
         // For guest users, save to guestTranslations in the store and AsyncStorage
+        // Ensure we don't duplicate by checking if the translation already exists in recent history
         setTranslationStore((state) => {
+          const isDuplicate = state.guestTranslations.some(
+            (item) =>
+              item.original_text === translationData.original_text &&
+              item.translated_text === translationData.translated_text &&
+              item.type === translationData.type
+          );
+          
+          if (isDuplicate) {
+            // If the translation is already in recent history, do not add it again
+            return state;
+          }
+
           const updatedGuestTranslations = [...state.guestTranslations, translationData];
           AsyncStorage.setItem('guestTranslations', JSON.stringify(updatedGuestTranslations));
           return { guestTranslations: updatedGuestTranslations };
         });
-        await getGuestTranslationCount().incrementGuestTranslationCount('text');
+
+        // Increment guest translation count
+        await useTranslationStore.getState().incrementGuestTranslationCount('text');
       }
 
       setTranslationSaved(true);
@@ -304,12 +315,12 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
       console.error('Failed to save translation:', err);
       const errorMessage = Helpers.handleError(err);
       if (errorMessage.includes('Invalid or expired session') && session) {
-        // Session is invalid or expired, log the user out
         await signOut();
         setError(t('error') + ': Your session has expired. Please log in again.');
         setToastVisible(true);
       } else {
         setError(t('error') + ': ' + errorMessage);
+        setToastVisible(true);
       }
     } finally {
       setIsSaving(false);
@@ -523,12 +534,9 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
     }
   };
   
-  
-  
-
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} pointerEvents="box-none">
         <View style={styles.content}>
           <View style={styles.languageContainer}>
             <View style={styles.languageSection}>
@@ -575,24 +583,34 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
                 icon={isRecording ? 'microphone-off' : 'microphone'}
                 size={24}
                 onPress={isRecording ? stopRecording : startRecording}
+                onPressIn={() => console.log('Microphone button press in', { isLoading })}
+                onPressOut={() => console.log('Microphone button press out', { isLoading })}
                 style={styles.microphoneButton}
                 iconColor={isRecording ? Constants.COLORS.DESTRUCTIVE : (isDarkMode ? '#aaa' : Constants.COLORS.PRIMARY)}
                 disabled={isLoading}
                 accessibilityLabel={isRecording ? "Stop recording" : "Start recording"}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
               />
             </View>
           </View>
 
           <TouchableOpacity
-            onPress={() => handleTranslate(inputText, false)}
+            onPress={() => {
+              setError('');
+              handleTranslate(inputText, false);
+            }}
             disabled={isLoading || isRecording}
             style={[styles.translateButton, { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY }]}
           >
             <Text style={styles.translateButtonLabel}>{t('translate')}</Text>
           </TouchableOpacity>
 
-          {error ? <Text style={[styles.error, { color: Constants.COLORS.DESTRUCTIVE }]}>{error}</Text> : null}
-          {isLoading ? <ActivityIndicator size="large" color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY} style={styles.loading} /> : null}
+          {error ? (
+            <Text style={[styles.error, { color: Constants.COLORS.DESTRUCTIVE }]}>{error}</Text>
+          ) : null}
+          {isLoading ? (
+            <ActivityIndicator size="large" color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY} style={styles.loading} />
+          ) : null}
 
           {translatedText ? (
             <View style={[styles.resultContainer, { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD }]}>
@@ -602,7 +620,10 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
               <Text style={[styles.translated, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>{translatedText}</Text>
               <View style={styles.actionButtons}>
                 <TouchableOpacity
-                  onPress={handleHear}
+                  onPress={() => {
+                    setError('');
+                    handleHear();
+                  }}
                   disabled={isLoading || isSpeaking}
                   style={[styles.actionButton, { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY }]}
                 >
@@ -610,7 +631,10 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
                   <Text style={styles.actionButtonText}>{t('hear')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={handleSave}
+                  onPress={() => {
+                    setError('');
+                    handleSave();
+                  }}
                   disabled={translationSaved || isLoading || isSaving}
                   style={[styles.actionButton, { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY }]}
                 >
@@ -624,7 +648,15 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
             </View>
           ) : null}
 
-          <Toast message={error} visible={toastVisible} onHide={() => setToastVisible(false)} />
+          <Toast
+            message={error}
+            visible={toastVisible}
+            onHide={() => {
+              setToastVisible(false);
+              setError('');
+            }}
+            style={styles.toast}
+          />
         </View>
       </ScrollView>
     </View>
@@ -634,15 +666,23 @@ const TextVoiceInput = React.memo(({ t, isDarkMode, session, sourceLang, setSour
 const TextVoiceTranslationScreen = () => {
   const { t, locale } = useTranslation();
   const { session } = useSession();
-  const { recentTextTranslations, recentVoiceTranslations, addTextTranslation, addVoiceTranslation, getGuestTranslationCount } = useTranslationStore();
+  const { recentTextTranslations, recentVoiceTranslations, guestTranslations, addTextTranslation, addVoiceTranslation, getGuestTranslationCount } = useTranslationStore();
   const { isDarkMode } = useThemeStore();
   const [sourceLang, setSourceLang] = useState(session?.preferences?.defaultFromLang || '');
   const [targetLang, setTargetLang] = useState(session?.preferences?.defaultToLang || '');
   const router = useRouter();
 
+  // Separate recent translations based on session state
   const recentTranslations = useMemo(() => {
-    return [...recentTextTranslations, ...recentVoiceTranslations].slice(-5);
-  }, [recentTextTranslations, recentVoiceTranslations]);
+    if (session) {
+      // For logged-in users, use recentTextTranslations and recentVoiceTranslations
+      return [...recentTextTranslations, ...recentVoiceTranslations].slice(-5);
+    } else {
+      // For guests, use guestTranslations filtered for text and voice types
+      const guestRecent = guestTranslations.filter(item => item.type === 'text' || item.type === 'voice');
+      return guestRecent.slice(-5);
+    }
+  }, [session, recentTextTranslations, recentVoiceTranslations, guestTranslations]);
 
   useEffect(() => {
     console.log("TOKEN:", session?.signed_session_id);
@@ -654,18 +694,27 @@ const TextVoiceTranslationScreen = () => {
         data={recentTranslations}
         keyExtractor={(item) => item.id}
         ListHeaderComponent={
-          <TextVoiceInput
-            t={t}
-            isDarkMode={isDarkMode}
-            session={session}
-            sourceLang={sourceLang}
-            setSourceLang={setSourceLang}
-            targetLang={targetLang}
-            setTargetLang={setTargetLang}
-            onAddTextTranslation={addTextTranslation}
-            onAddVoiceTranslation={addVoiceTranslation}
-            getGuestTranslationCount={getGuestTranslationCount}
-          />
+          <>
+            <TextVoiceInput
+              t={t}
+              isDarkMode={isDarkMode}
+              session={session}
+              sourceLang={sourceLang}
+              setSourceLang={setSourceLang}
+              targetLang={targetLang}
+              setTargetLang={setTargetLang}
+              onAddTextTranslation={addTextTranslation}
+              onAddVoiceTranslation={addVoiceTranslation}
+              getGuestTranslationCount={getGuestTranslationCount}
+            />
+            {(recentTranslations.length > 0) && (
+              <View style={styles.historyContainer}>
+                <Text style={[styles.historyTitle, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>
+                  {t('recentHistory')}
+                </Text>
+              </View>
+            )}
+          </>
         }
         renderItem={({ item }) => (
           <View style={[styles.translationItem, { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD }]}>
@@ -681,15 +730,6 @@ const TextVoiceTranslationScreen = () => {
           </View>
         )}
         contentContainerStyle={styles.scrollContent}
-        ListFooterComponent={
-          (recentTextTranslations.length > 0 || recentVoiceTranslations.length > 0) && (
-            <View style={styles.historyContainer}>
-              <Text style={[styles.historyTitle, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>
-                {t('recentHistory')}
-              </Text>
-            </View>
-          )
-        }
         extraData={isDarkMode}
       />
     </View>
@@ -802,16 +842,19 @@ const styles = StyleSheet.create({
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    minWidth: 140,
+    elevation: 3,
   },
   actionIcon: {
-    marginRight: Constants.SPACING.SMALL,
+    marginRight: Constants.SPACING.MEDIUM,
   },
   actionButtonText: {
     color: Constants.COLORS.CARD,
     fontSize: Constants.FONT_SIZES.SECONDARY,
+    fontWeight: '600',
   },
   savedMessage: {
     fontSize: Constants.FONT_SIZES.SECONDARY,

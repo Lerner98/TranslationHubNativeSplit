@@ -1,4 +1,3 @@
-// app/(drawer)/(tabs)/asl.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -11,6 +10,18 @@ import Constants from '../../../utils/Constants';
 import Helpers from '../../../utils/Helpers';
 import useThemeStore from '../../../stores/ThemeStore';
 import { useRouter } from 'expo-router';
+
+// ✅ Safe conversion of any error to string to prevent (NOBRIDGE)
+const getSafeMessage = (msg) => {
+  if (typeof msg === 'string') return msg;
+  if (msg instanceof Error && msg.message) return msg.message;
+  if (React.isValidElement(msg)) return '[Invalid React Element]';
+  try {
+    return JSON.stringify(msg);
+  } catch {
+    return '[Unrenderable error object]';
+  }
+};
 
 const ASLTranslationScreen = () => {
   const { t } = useTranslation();
@@ -88,19 +99,16 @@ const ASLTranslationScreen = () => {
 
           setTranslatedText(recognizedText);
 
-          await addTextTranslation(
-            {
-              id: Date.now().toString(),
-              fromLang: 'en',
-              toLang: 'en',
-              original_text: recognizedText,
-              translated_text: recognizedText,
-              created_at: new Date().toISOString(),
-              type: 'asl',
-            },
-            !session,
-            session?.signed_session_id
-          );
+          await addTextTranslation({
+            id: Date.now().toString(),
+            fromLang: 'en',
+            toLang: 'en',
+            original_text: recognizedText,
+            translated_text: recognizedText,
+            created_at: new Date().toISOString(),
+            type: 'asl',
+          }, !session, session?.signed_session_id);
+
           if (!session) await incrementGuestTranslationCount('asl');
         } else {
           setError(t('error') + ': Camera not available');
@@ -151,7 +159,6 @@ const ASLTranslationScreen = () => {
               styles.retryButton,
               { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY, opacity: pressed ? 0.7 : 1 },
             ]}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel="Retry camera permission"
           >
             <Text style={styles.retryButtonLabel}>Retry Permission</Text>
@@ -165,14 +172,12 @@ const ASLTranslationScreen = () => {
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#222' : Constants.COLORS.BACKGROUND }]}>
       <View style={styles.content}>
         {isCameraActive ? (
-          <CameraView
-            style={styles.camera}
-            ref={cameraRef}
-            facing="back"
-          />
+          <CameraView style={styles.camera} ref={cameraRef} facing="back" />
         ) : (
           <View style={[styles.cameraPlaceholder, { backgroundColor: isDarkMode ? '#444' : '#d3d3d3' }]}>
-            <Text style={[styles.placeholderText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>Camera Preview Will Appear Here</Text>
+            <Text style={[styles.placeholderText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
+              Camera Preview Will Appear Here
+            </Text>
             <Text style={[styles.noteText, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
               Note: ASL translation is not fully functional and requires TensorFlow/MediaPipe for accurate sign language recognition.
             </Text>
@@ -184,8 +189,7 @@ const ASLTranslationScreen = () => {
             isCameraActive ? styles.stopButton : styles.startButton,
             { backgroundColor: isCameraActive ? Constants.COLORS.DESTRUCTIVE : (isDarkMode ? '#555' : Constants.COLORS.PRIMARY), opacity: pressed ? 0.7 : 1 },
           ]}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityLabel={isCameraActive ? "Stop camera" : "Start camera"}
+          accessibilityLabel={isCameraActive ? 'Stop camera' : 'Start camera'}
         >
           <Text style={isCameraActive ? styles.stopButtonLabel : styles.startButtonLabel}>
             {isCameraActive ? t('stopCamera') : t('startCamera')}
@@ -202,7 +206,6 @@ const ASLTranslationScreen = () => {
                 styles.deleteButton,
                 { backgroundColor: Constants.COLORS.DESTRUCTIVE, opacity: pressed ? 0.7 : 1 },
               ]}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel="Delete translation"
             >
               <Text style={styles.deleteButtonLabel}>{t('deleteTranslation')}</Text>
@@ -210,15 +213,17 @@ const ASLTranslationScreen = () => {
           </View>
         ) : null}
       </View>
-      <Toast message={error} visible={toastVisible} onHide={() => setToastVisible(false)} />
+      <Toast
+        message={getSafeMessage(error)}
+        visible={toastVisible}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     flex: 1,
     justifyContent: 'center',

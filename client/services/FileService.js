@@ -2,35 +2,45 @@ import * as FileSystem from 'expo-file-system';
 import ApiService from './ApiService';
 
 const FileService = {
-  // ✅ Extract text from a file (PDF/DOCX) – send as Base64
+  // Extract text from a file (PDF/DOCX) – sent as Base64
   extractText: async (uri, signedSessionId = null) => {
-    // המרה ל־Base64 לפני שליחה לשרת
-    const base64Content = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    try {
+      const base64Content = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-    const response = await ApiService.post(
-      '/extract-text',
-      { uri: base64Content }, // 👈 שליחת base64 במקום נתיב מקומי
-      signedSessionId
-    );
-    if (response.success) {
-      return response.data.text;
+      const response = await ApiService.post(
+        '/extract-text',
+        { uri: base64Content }, // Send base64 instead of file path
+        signedSessionId
+      );
+
+      if (response.success && response.data?.text) {
+        return response.data.text;
+      }
+      throw new Error(response.error || 'Failed to extract text from file');
+    } catch (err) {
+      throw new Error(err.message || 'File extraction failed');
     }
-    throw new Error(response.error || 'Failed to extract text from file');
   },
 
+  // Generate downloadable Word document (DOCX)
   generateDocx: async (text, signedSessionId) => {
-    const response = await ApiService.post(
-      '/generate-docx',
-      { text },
-      signedSessionId,
-      { responseType: 'arraybuffer' }
-    );
-    if (response.success) {
-      return response.data;
+    try {
+      const response = await ApiService.post(
+        '/generate-docx',
+        { text },
+        signedSessionId,
+        { responseType: 'arraybuffer' }
+      );
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+      throw new Error(response.error || 'Failed to generate Word document');
+    } catch (err) {
+      throw new Error(err.message || 'Document generation failed');
     }
-    throw new Error(response.error || 'Failed to generate Word document');
   },
 };
 

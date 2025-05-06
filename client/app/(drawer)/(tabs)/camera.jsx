@@ -477,11 +477,17 @@ const CameraTranslationScreen = () => {
           contentContainerStyle={styles.scrollContent}
           data={[{ key: 'content' }]} // Single item to render the content
           renderItem={() => renderContent()}
-          ListFooterComponent={<Toast message={error} visible={toastVisible} onHide={() => setToastVisible(false)} />}
+          ListFooterComponent={
+          <Toast
+            message={typeof error === 'string' ? error : 'Unknown error'}
+            visible={toastVisible}
+            onHide={() => setToastVisible(false)}
+          />
+          }
         />
       )}
     </View>
-  );
+  );  
 };
 
 const styles = StyleSheet.create({

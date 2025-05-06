@@ -1,13 +1,13 @@
-// app/services/ApiService.js
 import axios from 'axios';
 import Constants from 'expo-constants';
+import AsyncStorageUtils from '../utils/AsyncStorage';
 
 // Dynamically determine the API_URL using the LAN IP address of the Expo development server
 const API_URL = Constants.expoConfig?.hostUri
   ? `http://${Constants.expoConfig.hostUri.split(':')[0]}:3000`
-  : 'http://localhost:3000'; // Fallback for when not running in Expo Go
+  : 'http://localhost:3000';
 
-console.log('API_URL set to:', API_URL); // Debug log to confirm the URL
+console.log('API_URL set to:', API_URL);
 
 class ApiService {
   static instance;
@@ -18,6 +18,21 @@ class ApiService {
       baseURL: API_URL,
       timeout: 10000,
     });
+
+    // Interceptor for handling unauthorized errors
+    this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          console.warn('🔐 Session expired or unauthorized – clearing AsyncStorage');
+          await AsyncStorageUtils.removeItem('user');
+          await AsyncStorageUtils.removeItem('signed_session_id');
+          await AsyncStorageUtils.removeItem('preferences');
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   static getInstance() {
@@ -31,8 +46,8 @@ class ApiService {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await this.axiosInstance.get(url, {
-        headers,
         ...config,
+        headers,
       });
       return { success: true, data: response.data };
     } catch (error) {
@@ -47,7 +62,7 @@ class ApiService {
       const headers = {
         ...(token && { Authorization: `Bearer ${token}` }),
         ...(isFormData
-          ? {} // Don't manually set Content-Type for FormData (let axios set the boundary)
+          ? {} // Let axios set Content-Type for FormData
           : { 'Content-Type': 'application/json' }),
         ...config.headers,
       };
@@ -67,8 +82,8 @@ class ApiService {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await this.axiosInstance.delete(url, {
-        headers,
         ...config,
+        headers,
       });
       return { success: true, data: response.data };
     } catch (error) {

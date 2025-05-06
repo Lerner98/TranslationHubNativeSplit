@@ -1,4 +1,3 @@
-// app/(drawer)/(tabs)/index.jsx
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useTranslation } from '../../../utils/TranslationContext';
@@ -15,45 +14,35 @@ const HomeScreen = () => {
   const isMounted = useRef(true);
 
   useEffect(() => {
-    console.log('HomeScreen mounted');
     isMounted.current = true;
-
     return () => {
-      console.log('HomeScreen unmounted');
       isMounted.current = false;
     };
   }, []);
 
+  const safeTranslate = (key, fallback = '') => {
+    const value = t(key);
+    return typeof value === 'string' ? value : fallback;
+  };
+
   const welcomeMessage = session
     ? `Hello, ${session.email.split('@')[0]}!`
-    : t('welcomeGuest');
+    : safeTranslate('welcomeGuest', 'Welcome, Guest!');
 
   const handleTextVoicePress = () => {
-    console.log('Navigating to Text & Voice Translation');
-    if (isMounted.current) {
-      router.navigate('/text-voice');
-    }
+    if (isMounted.current) router.navigate('/text-voice');
   };
 
   const handleFilePress = () => {
-    console.log('Navigating to File Translation');
-    if (isMounted.current) {
-      router.navigate('/file');
-    }
+    if (isMounted.current) router.navigate('/file');
   };
 
   const handleASLPress = () => {
-    console.log('Navigating to ASL Translation');
-    if (isMounted.current) {
-      router.navigate('/asl');
-    }
+    if (isMounted.current) router.navigate('/asl');
   };
 
   const handleCameraPress = () => {
-    console.log('Navigating to Camera Translation');
-    if (isMounted.current) {
-      router.navigate('/camera');
-    }
+    if (isMounted.current) router.navigate('/camera');
   };
 
   return (
@@ -64,49 +53,44 @@ const HomeScreen = () => {
             {welcomeMessage}
           </Text>
           <Text style={[styles.descriptionText, { color: isDarkMode ? '#CCC' : '#424242' }]}>
-            {t('welcomeMessage')}
+            {safeTranslate('welcomeMessage', 'Welcome to the app')}
           </Text>
         </View>
         <View style={styles.buttonGrid}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.gridButton,
-              { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
-            ]}
-            onPress={handleTextVoicePress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.gridButtonText}>{t('textVoiceTranslation')}</Text>
+          <Pressable style={({ pressed }) => [
+            styles.gridButton,
+            { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
+          ]} onPress={handleTextVoicePress}>
+            <Text style={styles.gridButtonText}>
+              {safeTranslate('textVoiceTranslation', 'Text/Voice')}
+            </Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.gridButton,
-              { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
-            ]}
-            onPress={handleFilePress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.gridButtonText}>{t('fileTranslation')}</Text>
+
+          <Pressable style={({ pressed }) => [
+            styles.gridButton,
+            { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
+          ]} onPress={handleFilePress}>
+            <Text style={styles.gridButtonText}>
+              {safeTranslate('fileTranslation', 'File')}
+            </Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.gridButton,
-              { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
-            ]}
-            onPress={handleASLPress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.gridButtonText}>{t('aslTranslation')}</Text>
+
+          <Pressable style={({ pressed }) => [
+            styles.gridButton,
+            { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
+          ]} onPress={handleASLPress}>
+            <Text style={styles.gridButtonText}>
+              {safeTranslate('aslTranslation', 'ASL')}
+            </Text>
           </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.gridButton,
-              { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
-            ]}
-            onPress={handleCameraPress}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.gridButtonText}>{t('cameraTranslation')}</Text>
+
+          <Pressable style={({ pressed }) => [
+            styles.gridButton,
+            { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2', opacity: pressed ? 0.8 : 1 },
+          ]} onPress={handleCameraPress}>
+            <Text style={styles.gridButtonText}>
+              {safeTranslate('cameraTranslation', 'Camera')}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -115,18 +99,16 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   contentContainer: {
     padding: Constants.SPACING.SECTION,
-    paddingBottom: 80, // Space for tab bar
+    paddingBottom: 80,
   },
   heroSection: {
     marginBottom: Constants.SPACING.SECTION,
     padding: 20,
     borderRadius: 15,
-    backgroundColor: 'rgba(30,136,229,0.1)', // Subtle overlay
+    backgroundColor: 'rgba(30,136,229,0.1)',
     alignItems: 'center',
   },
   welcomeText: {

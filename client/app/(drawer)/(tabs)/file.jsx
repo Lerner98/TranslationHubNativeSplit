@@ -1,4 +1,3 @@
-// app/(drawer)/(tabs)/file.jsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
@@ -33,17 +32,30 @@ const FileTranslationScreen = () => {
   const [fileFormat, setFileFormat] = useState('');
   const router = useRouter();
 
+  // ✅ Safe translation function
+  const safeTranslate = (key, fallback = '') => {
+    try {
+      const value = t(key);
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') return fallback;
+      return String(value);
+    } catch (err) {
+      console.warn(`Translation error for key "${key}":`, err);
+      return fallback;
+    }
+  };
+
   const pickDocument = async () => {
     setError('');
     setIsLoading(true);
     try {
       if (!session) {
         Alert.alert(
-          t('error'),
-          t('error') + ': You must be logged in to translate files. Would you like to log in now?',
+          safeTranslate('error', 'Error'),
+          `${safeTranslate('error', 'Error')}: You must be logged in to translate files. Would you like to log in now?`,
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Log In', onPress: () => router.push('/(auth)/login') },
+            { text: safeTranslate('cancel', 'Cancel'), style: 'cancel' },
+            { text: safeTranslate('login', 'Log In'), onPress: () => router.push('/(auth)/login') },
           ]
         );
         setIsLoading(false);
@@ -52,7 +64,7 @@ const FileTranslationScreen = () => {
 
       const result = await DocumentPicker.getDocumentAsync({ type: Constants.SUPPORTED_FILE_TYPES });
       if (!result.assets || result.assets.length === 0) {
-        setError(t('error') + ': No file selected');
+        setError(`${safeTranslate('error', 'Error')}: No file selected`);
         setToastVisible(true);
         setIsLoading(false);
         return;
@@ -61,7 +73,7 @@ const FileTranslationScreen = () => {
       const file = result.assets[0];
       const validationError = Helpers.validateFile({ type: file.mimeType, size: file.size });
       if (validationError) {
-        setError(t('error') + ': ' + validationError);
+        setError(`${safeTranslate('error', 'Error')}: ${validationError}`);
         setToastVisible(true);
         setIsLoading(false);
         return;
@@ -94,11 +106,6 @@ const FileTranslationScreen = () => {
         });
         setFileFormat('docx');
         mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      } else if (ext === 'pdf') {
-        // fallback save as txt for now
-        path = `${FileSystem.documentDirectory}translated_${Date.now()}.txt`;
-        await FileSystem.writeAsStringAsync(path, translated, { encoding: FileSystem.EncodingType.UTF8 });
-        setFileFormat('txt');
       } else {
         path = `${FileSystem.documentDirectory}translated_${Date.now()}.txt`;
         await FileSystem.writeAsStringAsync(path, translated, { encoding: FileSystem.EncodingType.UTF8 });
@@ -108,7 +115,7 @@ const FileTranslationScreen = () => {
       setTranslatedFileUri(path);
     } catch (err) {
       console.error('File picker or translation error:', err);
-      setError(t('error') + ': ' + Helpers.handleError(err));
+      setError(`${safeTranslate('error', 'Error')}: ${Helpers.handleError(err)}`);
       setToastVisible(true);
     } finally {
       setIsLoading(false);
@@ -125,37 +132,99 @@ const FileTranslationScreen = () => {
 
         await Sharing.shareAsync(translatedFileUri, {
           mimeType: mime,
-          dialogTitle: 'Download Translated File',
+          dialogTitle: safeTranslate('download', 'Download Translated File'),
         });
       } catch (err) {
         console.error('Download error:', err);
-        setError(t('error') + ': Failed to download file');
+        setError(`${safeTranslate('error', 'Error')}: Failed to download file`);
         setToastVisible(true);
       }
     } else {
-      setError(t('error') + ': No translated file available');
+      setError(`${safeTranslate('error', 'Error')}: No translated file available`);
       setToastVisible(true);
     }
   };
 
   const renderContent = () => (
     <View style={styles.content}>
-      <Text style={[styles.label, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>{t('targetLang')}</Text>
+      <Text style={[styles.label, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>
+        {safeTranslate('targetLang', 'Target Language')}
+      </Text>
       <LanguageSearch onSelectLanguage={setTargetLang} selectedLanguage={targetLang} />
-      <Pressable onPress={pickDocument} disabled={isLoading || !targetLang} style={({ pressed }) => [styles.button, { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY, opacity: pressed ? 0.7 : 1 }]}>
-        <Text style={styles.buttonLabel}>{t('pickDocument')}</Text>
+      <Pressable
+        onPress={pickDocument}
+        disabled={isLoading || !targetLang}
+        style={({ pressed }) => [
+          styles.button,
+          {
+            backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY,
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+      >
+        <Text style={styles.buttonLabel}>
+          {safeTranslate('pickDocument', 'Pick Document')}
+        </Text>
       </Pressable>
-      {error ? <Text style={[styles.error, { color: Constants.COLORS.DESTRUCTIVE }]}>{error}</Text> : null}
-      {isLoading && <ActivityIndicator size="large" color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY} style={styles.loading} />}
+
+      {error ? (
+        <Text style={[styles.error, { color: Constants.COLORS.DESTRUCTIVE }]}>
+          {error}
+        </Text>
+      ) : null}
+
+      {isLoading && (
+        <ActivityIndicator
+          size="large"
+          color={isDarkMode ? '#fff' : Constants.COLORS.PRIMARY}
+          style={styles.loading}
+        />
+      )}
+
       {fileName ? (
-        <View style={[styles.fileContainer, { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD }]}>
-          <Text style={[styles.fileLabel, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT }]}>Selected File:</Text>
-          <Text style={[styles.fileName, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>{fileName}</Text>
+        <View
+          style={[
+            styles.fileContainer,
+            { backgroundColor: isDarkMode ? '#333' : Constants.COLORS.CARD },
+          ]}
+        >
+          <Text
+            style={[
+              styles.fileLabel,
+              { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.TEXT },
+            ]}
+          >
+            {safeTranslate('selectedFile', 'Selected File')}:
+          </Text>
+          <Text
+            style={[
+              styles.fileName,
+              {
+                color: isDarkMode
+                  ? Constants.COLORS.CARD
+                  : Constants.COLORS.SECONDARY_TEXT,
+              },
+            ]}
+          >
+            {fileName}
+          </Text>
         </View>
       ) : null}
+
       {translatedFileUri && (
-        <Pressable onPress={downloadTranslatedFile} style={({ pressed }) => [styles.downloadButton, { backgroundColor: isDarkMode ? '#444' : Constants.COLORS.SUCCESS, opacity: pressed ? 0.7 : 1 }]}>
-          <Text style={styles.downloadButtonLabel}>Download Translated File</Text>
+        <Pressable
+          onPress={downloadTranslatedFile}
+          style={({ pressed }) => [
+            styles.downloadButton,
+            {
+              backgroundColor: isDarkMode ? '#444' : Constants.COLORS.SUCCESS,
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Text style={styles.downloadButtonLabel}>
+            {safeTranslate('download', 'Download Translated File')}
+          </Text>
         </Pressable>
       )}
     </View>
@@ -163,8 +232,17 @@ const FileTranslationScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#222' : Constants.COLORS.BACKGROUND }]}>
-      <FlatList data={[1]} keyExtractor={(item) => item.toString()} renderItem={() => renderContent()} contentContainerStyle={styles.scrollContent} />
-      <Toast message={error} visible={toastVisible} onHide={() => setToastVisible(false)} />
+      <FlatList
+        data={[1]}
+        keyExtractor={(item) => item.toString()}
+        renderItem={() => renderContent()}
+        contentContainerStyle={styles.scrollContent}
+      />
+      <Toast
+        message={typeof error === 'string' ? error : error?.message || 'Unknown error'}
+        visible={toastVisible}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   );
 };

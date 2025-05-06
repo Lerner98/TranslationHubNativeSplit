@@ -1,34 +1,95 @@
-// app/welcome.jsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import useThemeStore from '../stores/ThemeStore';
 import Constants from '../utils/Constants';
+import { useSession } from '../utils/ctx'; // ✅ נדרש לשימוש בפונקציה החדשה
+import { useTranslation } from '../utils/TranslationContext';
+import AsyncStorageUtils from '../utils/AsyncStorage';
 
 const WelcomeScreen = () => {
   const router = useRouter();
   const { isDarkMode } = useThemeStore();
+  const { t } = useTranslation();
+  const { resetSessionButKeepPreferences } = useSession(); // ✅ שימוש בפונקציה החדשה
+
+  // ✅ Translation safety fallback
+  const safeTranslate = (key, fallback = '') => {
+    try {
+      const val = t(key);
+      return typeof val === 'string' ? val : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  // 🔒 Always clear ghost sessions
+  useEffect(() => {
+    const forceResetSession = async () => {
+      try {
+        await resetSessionButKeepPreferences(); // ✅ שימוש במקום removeItem ידני
+      } catch (err) {
+        console.warn('Session reset failed:', err?.message || err);
+      }
+    };
+    forceResetSession();
+  }, []);
+
+  // 👤 Guest entry path
+  const continueAsGuest = async () => {
+    await resetSessionButKeepPreferences(); // ✅ אותו דבר גם כאן
+    router.replace('/(drawer)/(tabs)');
+  };
+
+
+  const backgroundColor = isDarkMode ? '#121212' : '#F5F5F5';
+  const titleColor = isDarkMode ? '#E0E0E0' : '#212121';
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#121212' : '#F5F5F5' }]}>
-      <Text style={[styles.title, { color: isDarkMode ? '#E0E0E0' : '#212121' }]}>TranslationHub</Text>
+    <View
+      style={[styles.container, { backgroundColor }]}
+      accessibilityLabel="Welcome screen"
+    >
+      <Text style={[styles.title, { color: titleColor }]}>
+        {safeTranslate('welcome', 'TranslationHub')}
+      </Text>
+
       <TouchableOpacity
         style={[styles.button, { backgroundColor: isDarkMode ? '#1E88E5' : '#1976D2' }]}
-        onPress={() => router.push('/(drawer)/(tabs)')}
+        onPress={async () => {
+          const token = await AsyncStorageUtils.getItem('signed_session_id');
+          if (token) {
+            Alert.alert(
+              safeTranslate('activeSession', 'Session Detected'),
+              safeTranslate('guestLimit', 'You are logged in. Continue as guest? This will log you out.'),
+              [
+                { text: safeTranslate('cancel', 'Cancel'), style: 'cancel' },
+                { text: safeTranslate('continue', 'Continue as Guest'), onPress: continueAsGuest }
+              ]
+            );
+          } else {
+            continueAsGuest();
+          }
+        }}
+        accessibilityLabel="Continue as guest"
       >
-        <Text style={styles.buttonText}>Continue as Guest</Text>
+        <Text style={styles.buttonText}>{safeTranslate('continueGuest', 'Continue as Guest')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity
         style={[styles.button, { backgroundColor: isDarkMode ? '#388E3C' : '#2E7D32' }]}
         onPress={() => router.push('/(auth)/register')}
+        accessibilityLabel="Register"
       >
-        <Text style={styles.buttonText}>Sign Up</Text>
+        <Text style={styles.buttonText}>{safeTranslate('register', 'Sign Up')}</Text>
       </TouchableOpacity>
+
       <TouchableOpacity
         style={[styles.button, { backgroundColor: isDarkMode ? '#FBC02D' : '#F9A825' }]}
         onPress={() => router.push('/(auth)/login')}
+        accessibilityLabel="Login"
       >
-        <Text style={styles.buttonText}>Login</Text>
+        <Text style={styles.buttonText}>{safeTranslate('login', 'Login')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -42,9 +103,10 @@ const styles = StyleSheet.create({
     padding: Constants.SPACING.SECTION,
   },
   title: {
-    fontSize: 36,
+    fontSize: Constants.FONT_SIZES.TITLE,
     fontWeight: 'bold',
-    marginBottom: 40,
+    marginBottom: Constants.SPACING.SECTION * 2,
+    textAlign: 'center',
   },
   button: {
     width: '80%',
@@ -60,7 +122,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: Constants.FONT_SIZES.BODY,
     fontWeight: '600',
   },
 });

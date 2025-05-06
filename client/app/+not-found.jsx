@@ -1,32 +1,60 @@
-// app/+not-found.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from '../utils/TranslationContext';
 import { useRouter } from 'expo-router';
+import { useSession } from '../utils/ctx';
+import AsyncStorageUtils from '../utils/AsyncStorage';
 import Toast from '../components/Toast';
 import Constants from '../utils/Constants';
 import useThemeStore from '../stores/ThemeStore';
 
 const NotFoundScreen = () => {
   const { t } = useTranslation();
+  const { resetSession } = useSession();
   const { isDarkMode } = useThemeStore();
   const [toastVisible, setToastVisible] = useState(true);
   const router = useRouter();
-  const errorMessage = `${t('error')}: 404 - ${t('pageNotFound')}`;
+
+  const backgroundColor = isDarkMode ? '#222' : Constants.COLORS.BACKGROUND;
+  const textColor = isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT;
+  const buttonColor = isDarkMode ? '#555' : Constants.COLORS.PRIMARY;
+
+  const errText = typeof t('error') === 'string' ? t('error') : 'Error';
+  const notFoundText = typeof t('pageNotFound') === 'string' ? t('pageNotFound') : 'Page Not Found';
+  const notFoundDesc =
+    typeof t('pageNotFoundDescription') === 'string'
+      ? t('pageNotFoundDescription')
+      : 'The page you are looking for does not exist.';
+  const goHomeText = typeof t('goToHome') === 'string' ? t('goToHome') : 'Go to Home';
+
+  const errorMessage = `${errText}: 404 - ${notFoundText}`;
+
+  useEffect(() => {
+    const clearSessionOn404 = async () => {
+      try {
+        await resetSession(); // Clears context + AsyncStorage
+        await AsyncStorageUtils.removeItem('signed_session_id');
+        await AsyncStorageUtils.removeItem('user');
+      } catch (err) {
+        console.error('Failed to reset session on 404:', err);
+      }
+    };
+    clearSessionOn404();
+  }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: isDarkMode ? '#222' : Constants.COLORS.BACKGROUND }]}>
-      <Text style={[styles.title, { color: Constants.COLORS.DESTRUCTIVE }]}>{t('error')}</Text>
-      <Text style={[styles.description, { color: isDarkMode ? Constants.COLORS.CARD : Constants.COLORS.SECONDARY_TEXT }]}>
-        {t('pageNotFoundDescription')}
-      </Text>
+    <View style={[styles.container, { backgroundColor }]}>
+      <Text style={[styles.title, { color: Constants.COLORS.DESTRUCTIVE }]}>{errText}</Text>
+      <Text style={[styles.description, { color: textColor }]}>{notFoundDesc}</Text>
+
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: isDarkMode ? '#555' : Constants.COLORS.PRIMARY }]}
+        style={[styles.button, { backgroundColor: buttonColor }]}
         onPress={() => router.replace('/(drawer)/(tabs)')}
         accessibilityLabel="Go to home page"
       >
-        <Text style={styles.buttonText}>{t('goToHome')}</Text>
+        <Text style={styles.buttonText}>{goHomeText}</Text>
       </TouchableOpacity>
+
       <Toast message={errorMessage} visible={toastVisible} onHide={() => setToastVisible(false)} />
     </View>
   );

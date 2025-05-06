@@ -8,33 +8,33 @@ const TranslationService = {
       { text, targetLang, sourceLang },
       signedSessionId
     );
-    if (response.success) {
-      return response.data; // Expected: { translatedText, detectedLang }
+    if (response.success && response.data) {
+      return response.data; // { translatedText, detectedLang }
     }
     throw new Error(response.error || 'Failed to translate text');
   },
 
-  // Detect the language of the given text
+  // Detect language
   detectLanguage: async (text, signedSessionId) => {
     const response = await ApiService.post(
       '/translate',
       { text, targetLang: 'en', sourceLang: 'auto' },
       signedSessionId
     );
-    if (response.success) {
+    if (response.success && response.data?.detectedLang) {
       return { detectedLang: response.data.detectedLang };
     }
     throw new Error(response.error || 'Failed to detect language');
   },
 
-  // Transliterate text from sourceLang to targetLang script
+  // Transliterate
   transliterateText: async (text, sourceLang, targetLang, signedSessionId) => {
     const response = await ApiService.post(
       '/transliterate',
       { text, sourceLang, targetLang },
       signedSessionId
     );
-    if (response.success) {
+    if (response.success && response.translatedText) {
       return response.translatedText;
     }
     throw new Error(response.error || 'Failed to transliterate text');
@@ -47,13 +47,13 @@ const TranslationService = {
       { text: fileContent, targetLang, sourceLang: 'auto' },
       signedSessionId
     );
-    if (response.success) {
+    if (response.success && response.data?.translatedText) {
       return response.data.translatedText;
     }
     throw new Error(response.error || 'Failed to translate file');
   },
 
-  // ✅ Speech-to-Text using audio file upload
+  // Speech-to-Text
   speechToText: async (audioUri, sourceLang, signedSessionId) => {
     const formData = new FormData();
     formData.append('audio', {
@@ -64,7 +64,7 @@ const TranslationService = {
     formData.append('sourceLang', sourceLang);
 
     const response = await ApiService.uploadForm('/speech-to-text', formData, signedSessionId);
-    if (response.success) {
+    if (response.success && response.data) {
       return response.data.text || '';
     }
     throw new Error(response.error || 'Failed to transcribe speech');
@@ -78,43 +78,43 @@ const TranslationService = {
       signedSessionId,
       { responseType: 'arraybuffer' }
     );
-    if (response.success) {
+    if (response.success && response.data) {
       return response.data;
     }
     throw new Error(response.error || 'Failed to generate speech');
   },
 
-  // Recognize text from image
+  // Image → Text
   recognizeTextFromImage: async (imageBase64, signedSessionId) => {
     const response = await ApiService.post(
       '/recognize-text',
       { imageBase64 },
       signedSessionId
     );
-    if (response.success) {
+    if (response.success && response.data) {
       return response.data;
     }
     throw new Error(response.error || 'Failed to recognize text from image');
   },
 
-  // Recognize ASL gesture
+  // ASL Recognition
   recognizeASL: async (imageBase64, signedSessionId) => {
     const response = await ApiService.post(
       '/recognize-asl',
       { imageBase64 },
       signedSessionId
     );
-    if (response.success) {
+    if (response.success && response.data?.text) {
       return response.data.text;
     }
     throw new Error(response.error || 'Failed to recognize ASL gesture');
   },
 
-  // Search languages (no token required)
+  // Search languages (public)
   searchLanguages: async (query = '*') => {
     const url = `/languages?query=${encodeURIComponent(query)}`;
     const response = await ApiService.get(url, null);
-    if (response.success) {
+    if (response.success && response.data) {
       return response.data;
     }
     throw new Error(response.error || 'Failed to search languages');

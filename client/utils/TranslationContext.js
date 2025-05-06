@@ -1,4 +1,3 @@
-// app/utils/TranslationContext.js
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorageUtils from './AsyncStorage';
 import { I18n } from 'i18n-js';
@@ -9,9 +8,10 @@ const i18n = new I18n();
 const translations = {
   en: {
     welcome: 'Welcome to TranslationHub',
+    continueGuest: 'Continue as Guest',
     welcomeGuest: 'Welcome, Guest!',
     welcomeMessage: 'TranslationHub helps you translate text, voice, files, and more in real-time.',
-    welcomeMessageHeader: 'Your Gateway to Seamless Translation', // Added for tabs
+    welcomeMessageHeader: 'Your Gateway to Seamless Translation',
     login: 'Login',
     register: 'Register',
     goToHome: 'Go to Home',
@@ -30,15 +30,16 @@ const translations = {
     saveSuccess: 'Translation saved successfully!',
     recentHistory: 'Recent History',
     createdAt: 'Created At',
-    history: 'History', // Added for drawer
-    home: 'Home', // Added for drawer and tabs
-    settings: 'Settings', // Added for drawer and Profile screen
-    profile: 'Profile', // Added for drawer and Profile screen
+    history: 'History',
+    home: 'Home',
+    settings: 'Settings',
+    profile: 'Profile',
     noTranslations: 'No translations found.',
     clearTranslations: 'Clear Translations',
     areYouSure: 'Are you sure?',
     cancel: 'Cancel',
     clear: 'Clear',
+    camera: 'Open Camera',
     success: 'Success',
     translationsCleared: 'Translations cleared successfully!',
     preferences: 'Preferences',
@@ -61,17 +62,21 @@ const translations = {
     startCamera: 'Start Camera',
     stopCamera: 'Stop Camera',
     loading: 'Loading...',
-    textVoiceTranslation: 'Text/Voice', // Added for tabs
-    fileTranslation: 'File', // Added for tabs
-    aslTranslation: 'ASL', // Added for tabs
-    cameraTranslation: 'Camera', // Added for tabs
+    textVoiceTranslation: 'Text/Voice',
+    fileTranslation: 'File',
+    aslTranslation: 'ASL',
+    cameraTranslation: 'Camera',
     noLanguagesFound: 'No languages found',
     pageNotFound: 'Page Not Found',
     pageNotFoundDescription: 'The page you are looking for does not exist or has been moved.',
     searchLanguages: 'Search languages',
+    activeSession: 'Session required',
+    continue: 'Continue',
+    hear: 'Hear',
   },
   he: {
     welcome: 'ברוכים הבאים ל-TranslationHub',
+    continueGuest: 'המשך כאורח',
     welcomeGuest: 'ברוך הבא, אורח!',
     welcomeMessage: 'TranslationHub עוזר לך לתרגם טקסט, קול, קבצים ועוד בזמן אמת.',
     welcomeMessageHeader: 'שער שלך לתרגום חלק',
@@ -93,10 +98,10 @@ const translations = {
     saveSuccess: 'התרגום נשמר בהצלחה!',
     recentHistory: 'היסטוריה אחרונה',
     createdAt: 'נוצר ב',
-    history: 'היסטוריה', // Added for drawer
-    home: 'בית', // Added for drawer and tabs
-    settings: 'הגדרות', // Added for drawer and Profile screen
-    profile: 'פרופיל', // Added for drawer and Profile screen
+    history: 'היסטוריה',
+    home: 'בית',
+    settings: 'הגדרות',
+    profile: 'פרופיל',
     noTranslations: 'לא נמצאו תרגומים.',
     clearTranslations: 'נקה תרגומים',
     areYouSure: 'האם אתה בטוח?',
@@ -124,14 +129,17 @@ const translations = {
     startCamera: 'הפעל מצלמה',
     stopCamera: 'עצור מצלמה',
     loading: 'טוען...',
-    textVoiceTranslation: 'טקסט/קול', // Added for tabs
-    fileTranslation: 'קובץ', // Added for tabs
-    aslTranslation: 'שפת סימנים', // Added for tabs
-    cameraTranslation: 'מצלמה', // Added for tabs
+    textVoiceTranslation: 'טקסט/קול',
+    fileTranslation: 'קובץ',
+    aslTranslation: 'שפת סימנים',
+    cameraTranslation: 'מצלמה',
     noLanguagesFound: 'לא נמצאו שפות',
     pageNotFound: 'הדף לא נמצא',
-    pageNotFoundDescription: 'הדף שאתה מחפש אינו קיים או הועבר.',
+    pageNotFoundDescription: 'הדף שאתך מחפש אינו קיים או הועבר.',
     searchLanguages: 'חפש שפות',
+    activeSession: 'נדרש חיבור',
+    continue: 'המשך',
+    hear: 'שמע',
   },
 };
 
@@ -141,7 +149,7 @@ i18n.fallbacks = true;
 const TranslationContext = createContext();
 
 export const TranslationProvider = ({ children }) => {
-  const [locale, setLocale] = useState('en'); // Set default locale synchronously
+  const [locale, setLocale] = useState('en');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -169,7 +177,6 @@ export const TranslationProvider = ({ children }) => {
   }, [locale]);
 
   const t = (key, options = {}) => {
-    // Use the defaultValue from options if provided, otherwise fall back to the key
     const translation = i18n.t(key, { ...options, locale });
     return translation === `[missing "${locale}.${key}" translation]` ? (options.defaultValue || key) : translation;
   };
@@ -185,9 +192,8 @@ export const TranslationProvider = ({ children }) => {
     }
   };
 
-  // Render children only after locale is initialized
   if (isLoading) {
-    return null; // Or a loading spinner
+    return null;
   }
 
   return (

@@ -1,5 +1,4 @@
-// app/(auth)/register.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from '../../utils/TranslationContext';
@@ -9,6 +8,7 @@ import { useRouter } from 'expo-router';
 import Constants from '../../utils/Constants';
 import useThemeStore from '../../stores/ThemeStore';
 import { FontAwesome } from '@expo/vector-icons';
+import AsyncStorageUtils from '../../utils/AsyncStorage';
 
 const RegisterScreen = () => {
   const { t } = useTranslation();
@@ -18,33 +18,48 @@ const RegisterScreen = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
-  const [successMessage, setSuccessMessage] = useState(''); // Add state for success message
+  const [successMessage, setSuccessMessage] = useState('');
   const router = useRouter();
+
+  // Logic of session check moves to auth layout, can delete at any time
+  // useEffect(() => {
+  //   const checkIfLoggedIn = async () => {
+  //     const token = await AsyncStorageUtils.getItem('signed_session_id');
+  //     if (token) {
+  //       router.replace('/(drawer)/(tabs)');
+  //     }
+  //   };
+  //   checkIfLoggedIn();
+  // }, []);
 
   const handleRegister = async () => {
     setError('');
     setSuccessMessage('');
+
     if (!email || !password) {
       setError(t('error') + ': Email and password are required');
       setToastVisible(true);
       return;
     }
+
     if (!/\S+@\S+\.\S+/.test(email)) {
       setError(t('error') + ': ' + t('invalidEmail'));
       setToastVisible(true);
       return;
     }
+
     if (password.length < 6) {
       setError(t('error') + ': ' + t('passwordTooShort'));
       setToastVisible(true);
       return;
     }
+
     try {
       await register(email, password);
       setSuccessMessage(t('success') + ': Registration successful! Please log in.');
       setToastVisible(true);
       setTimeout(() => {
-        router.replace('/(auth)/login'); // Simplified route
+        router.replace('/(auth)/login');
       }, 2000);
     } catch (err) {
       console.error('Registration error:', err);
@@ -58,13 +73,11 @@ const RegisterScreen = () => {
   };
 
   const goToLogin = () => {
-    console.log('Navigating to login screen');
     router.push('/(auth)/login');
   };
 
   return (
     <View style={[styles.container, { backgroundColor: isDarkMode ? '#1F1C2C' : '#F0F2F5' }]}>
-      {/* Header with only the back arrow */}
       <View style={styles.headerContainer}>
         <Pressable
           onPress={goBack}
@@ -76,7 +89,6 @@ const RegisterScreen = () => {
         </Pressable>
       </View>
 
-      {/* Form */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={[styles.formContainer, { backgroundColor: isDarkMode ? '#2C2C2E' : '#FFF' }]}>
           <Text style={[styles.title, { color: isDarkMode ? '#FFF' : '#333' }]}>{t('register')}</Text>
@@ -148,8 +160,9 @@ const RegisterScreen = () => {
         </View>
       </ScrollView>
 
+      {/* ✅ Toast message is now safely cast to string */}
       <Toast
-        message={successMessage || error || sessionError}
+        message={String(successMessage || error || sessionError || '')}
         visible={toastVisible}
         onHide={() => {
           setToastVisible(false);
@@ -161,9 +174,7 @@ const RegisterScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',

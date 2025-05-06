@@ -1,4 +1,3 @@
-// app/(drawer)/_layout.jsx
 import React, { useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
@@ -127,16 +126,26 @@ const CustomDrawerContent = (props) => {
 
 export default function DrawerLayout() {
   const { t } = useTranslation();
-  const { session, error: sessionError } = useSession();
+  const { session, error: sessionError, isLoggingIn } = useSession();
   const { isDarkMode } = useThemeStore();
   const router = useRouter();
+  const pathname = usePathname();
   const { width, height } = useWindowDimensions();
 
   useEffect(() => {
-    if (!session && sessionError) {
-      router.replace('/welcome');
+    // Normalize pathname for consistency
+    const normalizedPath = pathname.toLowerCase();
+    const isAuthRoute = normalizedPath.includes('/login') || normalizedPath.includes('/register');
+
+    // Skip navigation to /welcome if on login or register screen, or if still logging in
+    if (!session && sessionError && !isLoggingIn && !isAuthRoute) {
+      // Add a delay to ensure the toast is visible before navigating
+      const timer = setTimeout(() => {
+        router.replace('/welcome');
+      }, 3000); // 3-second delay to allow the toast to be seen
+      return () => clearTimeout(timer);
     }
-  }, [session, sessionError, router]);
+  }, [session, sessionError, isLoggingIn, pathname, router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

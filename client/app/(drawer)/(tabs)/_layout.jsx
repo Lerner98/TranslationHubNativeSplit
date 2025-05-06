@@ -7,6 +7,16 @@ import { FontAwesome } from '@expo/vector-icons';
 import Constants from '../../../utils/Constants';
 import { Pressable, Text, View, StyleSheet } from 'react-native';
 
+const getSafeMessage = (msg) => {
+  if (typeof msg === 'string') return msg;
+  if (msg?.message) return msg.message;
+  try {
+    return JSON.stringify(msg);
+  } catch {
+    return '[Invalid Message]';
+  }
+};
+
 export default function TabLayout() {
   const { t } = useTranslation();
   const { isDarkMode } = useThemeStore();
@@ -28,7 +38,9 @@ export default function TabLayout() {
         <Pressable onPress={toggleDrawer} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <FontAwesome name="bars" size={24} color={isDarkMode ? '#E0E0E0' : '#212121'} />
         </Pressable>
-        <Text style={[styles.headerText, { color: isDarkMode ? '#E0E0E0' : '#212121' }]}>{options.title}</Text>
+        <Text style={[styles.headerText, { color: isDarkMode ? '#E0E0E0' : '#212121' }]}>
+          {String(options?.title || '')}
+        </Text>
         <View style={styles.placeholder} />
       </View>
     );
@@ -52,20 +64,20 @@ export default function TabLayout() {
           fontWeight: '600',
           marginBottom: Constants.SPACING.SMALL,
         },
-        header: header, // Set the custom header for all tabs
-        unmountOnBlur: false, // Prevent unmounting tabs when they lose focus
-        lazy: false, // Preload all tabs to prevent unmounting
-        tabBarAllowFontScaling: false, // Prevent font scaling issues
+        header: header,
+        unmountOnBlur: false,
+        lazy: false,
+        tabBarAllowFontScaling: false,
       }}
       sceneContainerStyle={{
-        backgroundColor: isDarkMode ? '#121212' : '#F5F5F5', // Ensure consistent background
+        backgroundColor: isDarkMode ? '#121212' : '#F5F5F5',
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: t('welcomeMessageHeader'),
-          tabBarLabel: t('home'),
+          title: String(t('welcomeMessageHeader')),
+          tabBarLabel: String(t('home')),
           tabBarAccessibilityLabel: "Go to Home tab",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="home" size={size} color={color} />
@@ -75,8 +87,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="text-voice"
         options={{
-          title: t('textVoiceTranslation'),
-          tabBarLabel: t('textVoiceTranslation'),
+          title: String(t('textVoiceTranslation')),
+          tabBarLabel: String(t('textVoiceTranslation')),
           tabBarAccessibilityLabel: "Go to Text and Voice Translation tab",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="microphone" size={size} color={color} />
@@ -86,8 +98,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="file"
         options={{
-          title: t('fileTranslation'),
-          tabBarLabel: t('fileTranslation'),
+          title: String(t('fileTranslation')),
+          tabBarLabel: String(t('fileTranslation')),
           tabBarAccessibilityLabel: "Go to File Translation tab",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="file-text" size={size} color={color} />
@@ -97,8 +109,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="asl"
         options={{
-          title: t('aslTranslation'),
-          tabBarLabel: t('aslTranslation'),
+          title: String(t('aslTranslation')),
+          tabBarLabel: String(t('aslTranslation')),
           tabBarAccessibilityLabel: "Go to ASL Translation tab",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="hand-o-right" size={size} color={color} />
@@ -108,8 +120,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="camera"
         options={{
-          title: t('cameraTranslation'),
-          tabBarLabel: t('cameraTranslation'),
+          title: String(t('cameraTranslation')),
+          tabBarLabel: String(t('cameraTranslation')),
           tabBarAccessibilityLabel: "Go to Camera Translation tab",
           tabBarIcon: ({ color, size }) => (
             <FontAwesome name="camera" size={size} color={color} />

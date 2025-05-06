@@ -1,4 +1,3 @@
-// stores/ThemeStore.js
 import { create } from 'zustand';
 import AsyncStorageUtils from '../utils/AsyncStorage';
 import Helpers from '../utils/Helpers';
@@ -14,6 +13,8 @@ const useThemeStore = create((set) => ({
       const savedTheme = await AsyncStorageUtils.getItem('theme');
       if (savedTheme !== null) {
         set({ isDarkMode: savedTheme === 'dark' });
+      } else {
+        set({ isDarkMode: false }); // Default to light mode
       }
       set({ isLoading: false });
     } catch (error) {

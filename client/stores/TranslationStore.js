@@ -1,11 +1,8 @@
-// stores/TranslationStore.js
 import { create } from 'zustand';
 import AsyncStorageUtils from '../utils/AsyncStorage';
 import ApiService from '../services/ApiService';
 import Constants from '../utils/Constants';
 import Helpers from '../utils/Helpers';
-
-const BASE_URL = Constants.API_URL;
 
 const useTranslationStore = create((set, get) => ({
   recentTextTranslations: [],
@@ -19,48 +16,36 @@ const useTranslationStore = create((set, get) => ({
   fetchTranslations: async (user) => {
     try {
       set({ isLoading: true, error: null });
-      const textResponse = await ApiService.get(
-        '/translations/text',
-        user.signed_session_id
-      );
-      if (!textResponse.success) {
-        throw new Error(textResponse.error);
-      }
-      const textTranslations = textResponse.data;
 
-      const voiceResponse = await ApiService.get(
-        '/translations/voice',
-        user.signed_session_id
-      );
-      if (!voiceResponse.success) {
-        throw new Error(voiceResponse.error);
+      const [textRes, voiceRes] = await Promise.all([
+        ApiService.get('/translations/text', user.signed_session_id),
+        ApiService.get('/translations/voice', user.signed_session_id),
+      ]);
+
+      if (!textRes.success || !voiceRes.success) {
+        throw new Error(textRes.error || voiceRes.error);
       }
-      const voiceTranslations = voiceResponse.data;
 
       set({
-        savedTextTranslations: textTranslations,
-        savedVoiceTranslations: voiceTranslations,
-        recentTextTranslations: textTranslations.slice(-5),
-        recentVoiceTranslations: voiceTranslations.slice(-5),
+        savedTextTranslations: textRes.data,
+        savedVoiceTranslations: voiceRes.data,
+        recentTextTranslations: textRes.data.slice(-5),
+        recentVoiceTranslations: voiceRes.data.slice(-5),
         isLoading: false,
       });
-    } catch (error) {
-      const errorMessage = Helpers.handleError(error);
-      set({ error: errorMessage, isLoading: false });
-      throw new Error(errorMessage);
+    } catch (err) {
+      const msg = Helpers.handleError(err);
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
     }
   },
 
   clearTranslations: async (user) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await ApiService.delete(
-        '/translations',
-        user.signed_session_id
-      );
-      if (!response.success) {
-        throw new Error(response.error);
-      }
+      const response = await ApiService.delete('/translations', user.signed_session_id);
+      if (!response.success) throw new Error(response.error);
+
       set({
         savedTextTranslations: [],
         savedVoiceTranslations: [],
@@ -68,10 +53,10 @@ const useTranslationStore = create((set, get) => ({
         recentVoiceTranslations: [],
         isLoading: false,
       });
-    } catch (error) {
-      const errorMessage = Helpers.handleError(error);
-      set({ error: errorMessage, isLoading: false });
-      throw new Error(errorMessage);
+    } catch (err) {
+      const msg = Helpers.handleError(err);
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
     }
   },
 
@@ -80,81 +65,63 @@ const useTranslationStore = create((set, get) => ({
       set({ isLoading: true, error: null });
       await AsyncStorageUtils.removeItem('guestTranslations');
       set({ guestTranslations: [], isLoading: false });
-    } catch (error) {
-      const errorMessage = Helpers.handleError(error);
-      set({ error: errorMessage, isLoading: false });
-      throw new Error(errorMessage);
+    } catch (err) {
+      const msg = Helpers.handleError(err);
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
     }
   },
 
   addTextTranslation: async (translation, isGuest, sessionId) => {
     if (isGuest) {
-      const currentTranslations = get().guestTranslations;
-      const updatedTranslations = [...currentTranslations, { ...translation, type: translation.type || 'text' }];
-      set({ guestTranslations: updatedTranslations });
-      await AsyncStorageUtils.setItem('guestTranslations', updatedTranslations);
+      const updated = [...get().guestTranslations, { ...translation, type: 'text' }];
+      set({ guestTranslations: updated });
+      await AsyncStorageUtils.setItem('guestTranslations', updated);
     } else {
       try {
         set({ isLoading: true, error: null });
-        const response = await ApiService.post(
-          '/translations/text',
-          translation,
-          sessionId
-        );
-        if (!response.success) {
-          throw new Error(response.error);
-        }
-        // Fetch the updated translations to get the server-generated id
-        const fetchResponse = await ApiService.get('/translations/text', sessionId);
-        if (!fetchResponse.success) {
-          throw new Error(fetchResponse.error);
-        }
-        const updatedTranslations = fetchResponse.data;
-        set((state) => ({
-          recentTextTranslations: updatedTranslations.slice(-5),
-          savedTextTranslations: updatedTranslations,
+        const res = await ApiService.post('/translations/text', translation, sessionId);
+        if (!res.success) throw new Error(res.error);
+
+        const fetch = await ApiService.get('/translations/text', sessionId);
+        if (!fetch.success) throw new Error(fetch.error);
+
+        set({
+          recentTextTranslations: fetch.data.slice(-5),
+          savedTextTranslations: fetch.data,
           isLoading: false,
-        }));
-      } catch (error) {
-        const errorMessage = Helpers.handleError(error);
-        set({ error: errorMessage, isLoading: false });
-        throw new Error(errorMessage);
+        });
+      } catch (err) {
+        const msg = Helpers.handleError(err);
+        set({ error: msg, isLoading: false });
+        throw new Error(msg);
       }
     }
   },
 
   addVoiceTranslation: async (translation, isGuest, sessionId) => {
     if (isGuest) {
-      const currentTranslations = get().guestTranslations;
-      const updatedTranslations = [...currentTranslations, { ...translation, type: translation.type || 'voice' }];
-      set({ guestTranslations: updatedTranslations });
-      await AsyncStorageUtils.setItem('guestTranslations', updatedTranslations);
+      const updated = [...get().guestTranslations, { ...translation, type: 'voice' }];
+      set({ guestTranslations: updated });
+      await AsyncStorageUtils.setItem('guestTranslations', updated);
     } else {
       try {
         set({ isLoading: true, error: null });
-        const response = await ApiService.post(
-          '/translations/voice',
-          translation,
-          sessionId
-        );
-        if (!response.success) {
-          throw new Error(response.error);
-        }
-        // Fetch the updated translations to get the server-generated id
-        const fetchResponse = await ApiService.get('/translations/voice', sessionId);
-        if (!fetchResponse.success) {
-          throw new Error(fetchResponse.error);
-        }
-        const updatedTranslations = fetchResponse.data;
-        set((state) => ({
-          recentVoiceTranslations: updatedTranslations.slice(-5),
-          savedVoiceTranslations: updatedTranslations,
+        const res = await ApiService.post('/translations/voice', translation, sessionId);
+        if (!res.success) throw new Error(res.error);
+
+        const fetch = await ApiService.get('/translations/voice', sessionId);
+        if (!fetch.success) throw new Error(fetch.error);
+
+        set({
+          recentVoiceTranslations: fetch.data.slice(-5),
+          savedVoiceTranslations: fetch.data,
           isLoading: false,
-        }));
-      } catch (error) {
-        const errorMessage = Helpers.handleError(error);
-        set({ error: errorMessage, isLoading: false });
-        throw new Error(errorMessage);
+        });
+      } catch (err) {
+        const msg = Helpers.handleError(err);
+        set({ error: msg, isLoading: false });
+        throw new Error(msg);
       }
     }
   },
@@ -162,36 +129,32 @@ const useTranslationStore = create((set, get) => ({
   incrementGuestTranslationCount: async (type) => {
     try {
       const key = `guest_${type}_count`;
-      const currentCount = (await AsyncStorageUtils.getItem(key)) || 0;
-      const newCount = parseInt(currentCount, 10) + 1;
-      await AsyncStorageUtils.setItem(key, newCount.toString());
-    } catch (error) {
-      const errorMessage = `Failed to increment ${type} count: ${error.message}`;
-      set({ error: errorMessage });
-      console.error(errorMessage);
+      const current = parseInt(await AsyncStorageUtils.getItem(key) || '0', 10);
+      await AsyncStorageUtils.setItem(key, (current + 1).toString());
+    } catch (err) {
+      const msg = `Failed to increment ${type} count: ${err.message}`;
+      set({ error: msg });
+      console.error(msg);
     }
   },
 
-  getGuestTranslationCount: () => ({
-    total: async () => {
+  getGuestTranslationCount: async (type) => {
+    if (type === 'total') {
       try {
-        const guestTranslations = JSON.parse(await AsyncStorageUtils.getItem('guestTranslations')) || [];
-        return guestTranslations.length;
-      } catch (err) {
+        const guest = await AsyncStorageUtils.getItem('guestTranslations');
+        return guest?.length || 0;
+      } catch {
         return 0;
       }
-    },
-    incrementGuestTranslationCount: async (type) => {
-      try {
-        const key = `guest_${type}_count`;
-        const currentCount = (await AsyncStorageUtils.getItem(key)) || 0;
-        const newCount = parseInt(currentCount, 10) + 1;
-        await AsyncStorageUtils.setItem(key, newCount.toString());
-      } catch (err) {
-        console.error('Failed to increment guest translation count:', err);
-      }
-    },
-  }),
+    }
+
+    try {
+      const count = await AsyncStorageUtils.getItem(`guest_${type}_count`);
+      return parseInt(count || '0', 10);
+    } catch {
+      return 0;
+    }
+  },
 }));
 
 export default useTranslationStore;
