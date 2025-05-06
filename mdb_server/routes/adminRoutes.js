@@ -1,16 +1,13 @@
-// 📁 mdb_server/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
-const Report = require('../models/Report');
+const adminController = require('../controllers/adminController');
+const { authMiddleware } = require('../middleware/auth');
 
-router.get('/reports', async (req, res) => {
-  try {
-    const reports = await Report.find().sort({ time: -1 }).limit(100);
-    res.render('adminReports', { reports });
-  } catch (err) {
-    console.error('Error loading reports:', err.message);
-    res.status(500).send('Error loading reports');
-  }
-});
+router.post('/', adminController.createAdmin);
+router.get('/:id', authMiddleware, adminController.getAdmin);
+router.get('/', authMiddleware, adminController.getAllAdmins);
+router.put('/:id', authMiddleware, adminController.updateAdmin);
+router.delete('/:id', authMiddleware, adminController.deleteAdmin);
+router.post('/login', adminController.loginAdmin);
 
 module.exports = router;

@@ -1,26 +1,41 @@
-// 📁 server.js
-const express = require('express');
-const connectDB = require('./config/database');
-const reportRoutes = require('./routes/reports.route');
-const adminRoutes = require('./routes/adminRoutes');
-const cors = require('cors');
-require('dotenv').config();
+const { spawn } = require('child_process');
 
-const app = express();
+// Function to start a microservice
+const startMicroservice = (serviceName, servicePath, port) => {
+  const child = spawn('node', [`${servicePath}/server.js`], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, PORT: port },
+  });
 
-// Connect to MongoDB
-connectDB();
+  child.stdout.on('data', (data) => {
+    console.log(`[${serviceName}] ${data}`);
+  });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+  child.stderr.on('data', (data) => {
+    console.error(`[${serviceName} ERROR] ${data}`);
+  });
 
-// API Routes
-app.use('/api/reports', reportRoutes);
+  child.on('error', (error) => {
+    console.error(`[${serviceName} ERROR] Failed to start: ${error.message}`);
+  });
 
-// Admin Dashboard API (React will consume this)
-app.use('/admin', adminRoutes);
+  child.on('exit', (code, signal) => {
+    if (code !== 0) {
+      console.error(`[${serviceName}] Exited with code ${code} and signal ${signal}`);
+    }
+  });
 
-// Start Server
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+  return child;
+};
+
+// Start the microservices
+const adminService = startMicroservice('AdminService', './admin-service', 3001);
+const reportService = startMicroservice('ReportService', './report-service', 3002);
+
+// Handle process termination
+process.on('SIGINT', () => {
+  console.log('Shutting down microservices...');
+  adminService.kill();
+  reportService.kill();
+  process.exit(0);
+});
