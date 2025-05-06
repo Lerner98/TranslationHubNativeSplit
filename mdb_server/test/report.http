@@ -1,12 +1,7 @@
-### Send error report
-POST http://localhost:5001/api/reports
+POST http://localhost:3001/api/admins/login
 Content-Type: application/json
 
 {
-  "message": "Test Error Report",
-  "stack": "FakeStack:line 42",
-  "time": "2025-05-03T12:00:00.000Z"
+  "email": "guylerner12@gmail.com",
+  "password": "guy123"
 }
-
-### Get all reports
-GET http://localhost:5001/api/reports

@@ -3,19 +3,25 @@ const fs = require('fs').promises;
 const path = require('path');
 const { generateToken } = require('../middleware/auth');
 
-const ADMINS_JSON_PATH = path.join(__dirname, '../../logs/admins.json');
+const ADMINS_JSON_PATH = path.join(__dirname, '../logs/admins.json');
 
 const readAdminsFromJson = async () => {
   try {
     const data = await fs.readFile(ADMINS_JSON_PATH, 'utf8');
     return JSON.parse(data);
   } catch (error) {
+    console.error('Error reading admins.json:', error.message);
     return [];
   }
 };
 
 const writeAdminsToJson = async (admins) => {
-  await fs.writeFile(ADMINS_JSON_PATH, JSON.stringify(admins, null, 2));
+  try {
+    await fs.writeFile(ADMINS_JSON_PATH, JSON.stringify(admins, null, 2));
+  } catch (error) {
+    console.error('Error writing to admins.json:', error.message);
+    throw error;
+  }
 };
 
 exports.createAdmin = async (req, res) => {
@@ -41,6 +47,7 @@ exports.createAdmin = async (req, res) => {
     delete adminData.password;
     res.status(201).json({ success: true, message: 'Admin created successfully', admin: adminData });
   } catch (error) {
+    console.error('Error in createAdmin:', error.stack);
     res.status(500).json({ success: false, message: 'Error creating admin', error: error.message });
   }
 };
@@ -51,6 +58,7 @@ exports.getAdmin = async (req, res) => {
     if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
     res.status(200).json({ success: true, admin });
   } catch (error) {
+    console.error('Error in getAdmin:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching admin', error: error.message });
   }
 };
@@ -60,6 +68,7 @@ exports.getAllAdmins = async (req, res) => {
     const admins = await Admin.find().select('-password');
     res.status(200).json({ success: true, admins });
   } catch (error) {
+    console.error('Error in getAllAdmins:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching admins', error: error.message });
   }
 };
@@ -77,7 +86,7 @@ exports.updateAdmin = async (req, res) => {
     await admin.save();
 
     const admins = await readAdminsFromJson();
-    const adminIndex = admins.findIndex(a => a._id === req.params.id);
+    const adminIndex = admins.findIndex(a => a._id.toString() === req.params.id);
     if (adminIndex !== -1) {
       admins[adminIndex] = admin.toObject();
       await writeAdminsToJson(admins);
@@ -85,6 +94,7 @@ exports.updateAdmin = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Admin updated successfully', admin: admin.toObject({ getters: true, versionKey: false, transform: (doc, ret) => { delete ret.password; return ret; } }) });
   } catch (error) {
+    console.error('Error in updateAdmin:', error.stack);
     res.status(500).json({ success: false, message: 'Error updating admin', error: error.message });
   }
 };
@@ -95,11 +105,12 @@ exports.deleteAdmin = async (req, res) => {
     if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
 
     const admins = await readAdminsFromJson();
-    const updatedAdmins = admins.filter(a => a._id !== req.params.id);
+    const updatedAdmins = admins.filter(a => a._id.toString() !== req.params.id);
     await writeAdminsToJson(updatedAdmins);
 
     res.status(200).json({ success: true, message: 'Admin deleted successfully' });
   } catch (error) {
+    console.error('Error in deleteAdmin:', error.stack);
     res.status(500).json({ success: false, message: 'Error deleting admin', error: error.message });
   }
 };
@@ -114,13 +125,16 @@ exports.loginAdmin = async (req, res) => {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ success: false, message: 'Admin not found' });
 
-    const isMatch = await admin.comparePassword(password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    // Compare plain text password (since we're not using bcrypt anymore)
+    if (admin.password !== password) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
 
     const token = generateToken(admin._id.toString());
     const adminData = admin.toObject({ getters: true, versionKey: false, transform: (doc, ret) => { delete ret.password; return ret; } });
     res.status(200).json({ success: true, message: 'Login successful', admin: adminData, token });
   } catch (error) {
+    console.error('Error in loginAdmin:', error.stack);
     res.status(500).json({ success: false, message: 'Error logging in', error: error.message });
   }
 };

@@ -2,19 +2,25 @@ const Report = require('../models/Report');
 const fs = require('fs').promises;
 const path = require('path');
 
-const REPORTS_JSON_PATH = path.join(__dirname, '../../logs/reports.json');
+const REPORTS_JSON_PATH = path.join(__dirname, '../logs/reports.json');
 
 const readReportsFromJson = async () => {
   try {
     const data = await fs.readFile(REPORTS_JSON_PATH, 'utf8');
     return JSON.parse(data);
   } catch (error) {
+    console.error('Error reading reports.json:', error.message);
     return [];
   }
 };
 
 const writeReportsToJson = async (reports) => {
-  await fs.writeFile(REPORTS_JSON_PATH, JSON.stringify(reports, null, 2));
+  try {
+    await fs.writeFile(REPORTS_JSON_PATH, JSON.stringify(reports, null, 2));
+  } catch (error) {
+    console.error('Error writing to reports.json:', error.message);
+    throw error;
+  }
 };
 
 exports.submitReport = async (req, res) => {
@@ -33,6 +39,7 @@ exports.submitReport = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Report submitted successfully' });
   } catch (error) {
+    console.error('Error in submitReport:', error.stack);
     res.status(500).json({ success: false, message: 'Failed to submit report', error: error.message });
   }
 };
@@ -43,15 +50,17 @@ exports.getReport = async (req, res) => {
     if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
     res.status(200).json({ success: true, report });
   } catch (error) {
+    console.error('Error in getReport:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching report', error: error.message });
   }
 };
 
 exports.getAllReports = async (req, res) => {
   try {
-    const reports = await Report.find().sort({ createdAt: -1 }).limit(100);
+    const reports = await Report.find().sort({ createdAt: -1 });
     res.status(200).json({ success: true, reports });
   } catch (error) {
+    console.error('Error in getAllReports:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching reports', error: error.message });
   }
 };
@@ -74,7 +83,7 @@ exports.updateReport = async (req, res) => {
     await report.save();
 
     const reports = await readReportsFromJson();
-    const reportIndex = reports.findIndex(r => r._id === req.params.id);
+    const reportIndex = reports.findIndex(r => r._id.toString() === req.params.id);
     if (reportIndex !== -1) {
       reports[reportIndex] = report.toObject();
       await writeReportsToJson(reports);
@@ -82,6 +91,7 @@ exports.updateReport = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Report updated successfully', report });
   } catch (error) {
+    console.error('Error in updateReport:', error.stack);
     res.status(500).json({ success: false, message: 'Error updating report', error: error.message });
   }
 };
@@ -92,11 +102,12 @@ exports.deleteReport = async (req, res) => {
     if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
 
     const reports = await readReportsFromJson();
-    const updatedReports = reports.filter(r => r._id !== req.params.id);
+    const updatedReports = reports.filter(r => r._id.toString() !== req.params.id);
     await writeReportsToJson(updatedReports);
 
     res.status(200).json({ success: true, message: 'Report deleted successfully' });
   } catch (error) {
+    console.error('Error in deleteReport:', error.stack);
     res.status(500).json({ success: false, message: 'Error deleting report', error: error.message });
   }
 };
@@ -118,6 +129,7 @@ exports.getErrorsByDay = async (req, res) => {
 
     res.status(200).json({ success: true, errorsByDay });
   } catch (error) {
+    console.error('Error in getErrorsByDay:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching errors by day', error: error.message });
   }
 };
@@ -125,20 +137,22 @@ exports.getErrorsByDay = async (req, res) => {
 exports.getMostReported = async (req, res) => {
   try {
     const reports = await Report.find();
-    const keywords = reports.flatMap(report => (report.message || '').toLowerCase().split(/\W+/));
-    const keywordCount = keywords.reduce((acc, keyword) => {
-      if (keyword.length > 3) { // Ignore short words
-        acc[keyword] = (acc[keyword] || 0) + 1;
-      }
-      return acc;
-    }, {});
+    const mostReported = await Report.aggregate([
+      { $match: { message: { $exists: true, $ne: null } } },
+      {
+        $group: {
+          _id: "$message",
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
 
-    const sortedKeywords = Object.entries(keywordCount)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10); // Top 10 keywords
-
-    res.status(200).json({ success: true, mostReported: sortedKeywords });
+    const result = mostReported.map(item => [item._id, item.count]);
+    res.status(200).json({ success: true, mostReported: result });
   } catch (error) {
+    console.error('Error in getMostReported:', error.stack);
     res.status(500).json({ success: false, message: 'Error fetching most reported keywords', error: error.message });
   }
 };

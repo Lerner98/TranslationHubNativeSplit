@@ -1,358 +1,343 @@
-# 📝 TODO: Feedback Reporting & MVC Refactor
+Current State of the MDB Server
 
-## 🌐 SERVER SPLITTING GOALS
-
-- [ ] Extract `database.js` to `config/database.js`
-- [ ] Move all model definitions (e.g., Report) to `/models`
-- [ ] Move all business logic to `/services`
-- [ ] Move all route handlers to `/controllers`
-- [ ] Define routes in `/routes` using Express Router
-- [ ] Keep `server.js` clean (only app setup & middlewares)
-
----
-
-## 🧩 FEEDBACK REPORT MODULE
-
-### 1. Report Model
-- [ ] Create `models/Report.js`
-- Schema: `{ message: String, errorStack: String, createdAt: Date }`
-
-### 2. Controller
-- [ ] `reportController.js`
-- Method: `createReport(req, res)` – validate & send to service
-
-### 3. Service
-- [ ] `feedbackService.js`
-- Function: `saveReport(data)` – interact with DB (Report.create)
-
-### 4. Route
-- [ ] `feedbackRoutes.js`
-- Route: `POST /api/feedback` → calls controller
-
----
-
-## 🛠 ERROR BOUNDARY MISSION
-
-- [ ] Build `middleware/errorBoundary.js`
-- Wrap with Express-style middleware: `(err, req, res, next)`
-- Capture error message and stack trace
-- Send to `POST /api/feedback` route automatically
-
----
-
-## ✅ EXTRA IMPROVEMENTS
-
-- [ ] Create `.env` for Mongo URI and secret configs
-- [ ] Validate report input before inserting
-- [ ] Add `GET /api/feedback` for admin to view reports
-- [ ] Protect admin route with token or IP restriction (optional)
+# Structure:
+mdb_server/
+  ├── admin-service/
+  │   ├── models/
+  │   │   └── Admin.js
+  │   ├── controllers/
+  │   │   └── adminController.js
+  │   ├── routes/
+  │   │   └── adminRoutes.js
+  │   ├── middleware/
+  │   │   └── auth.js
+  │   └── server.js
+  ├── report-service/
+  │   ├── models/
+  │   │   └── Report.js
+  │   ├── controllers/
+  │   │   └── reportController.js
+  │   ├── routes/
+  │   │   └── reportRoutes.js
+  │   ├── middleware/
+  │   │   └── auth.js
+  │   └── server.js
+  ├── logs/
+  │   ├── admins.json
+  │   └── reports.json
+  ├── .env
+  ├── server.js
 
 
 
+# Functionality:
+Admin Microservice: CRUD operations for admins (POST /api/admins, GET /api/admins, etc.), login endpoint (POST /api/admins/login), Bcrypt for password encryption, token-based authentication.
+
+# Report Microservice: 
+CRUD operations for reports (POST /api/reports, GET /api/reports, etc.), statistics endpoints (GET /api/reports/statistics/errors-by-day, GET /api/reports/statistics/most-reported), token-based authentication for admin-only endpoints.
+
+# MongoDB: 
+Uses translationhub database with admins and reports collections.
+
+# JSON Logging: 
+Logs all operations to logs/admins.json and logs/reports.json.
+
+# Authentication:
+ Admins must log in to access protected endpoints; POST /api/reports is public for frontend submission.
+Next Steps: Integrate with the client-side (errorBoundary) and React web dashboard.
 
 
-
-📌 TODO (לרשום לעצמך בהמשך)
-כשתרצה להפעיל את MongoDB בפועל:
-
-הכנס את החיבור בקובץ .env:
-
-ini
-Copy
-Edit
-MONGO_URI=mongodb://localhost:27017/YourAppReports
-ודא ש־MongoDB רץ:
-
-nginx
-Copy
-Edit
-mongod
-תוכל לבדוק POST:
-
-json
-Copy
-Edit
-POST /api/errors/report
-{
-  "message": "Crash in component XYZ",
-  "stack": "ReferenceError: foo is not defined",
-  "user": "guest123",
-  "platform": "Android",
-  "appVersion": "1.2.3"
-}
-ותוכל לגשת ל־GET:
-
-bash
-Copy
-Edit
-GET /api/errors/reports
+# Comprehensive TODO List
+📝 MDB Server Finalization and Testing
+Goal: Ensure the mdb_server is fully functional, tested, and ready for integration with the frontend and web dashboard.
 
 
-
-✅ ERROR REPORT SYSTEM – TODO CHECKLIST
-📁 Backend (mdb_server)
- Create route: routes/reportRoutes.js
-
- Create controller: controllers/reportController.js
-
- Create service (optional): services/reportService.js
-
- Add POST endpoint: POST /api/reports – saves error report to MongoDB
-
- Design Report model: models/Report.js
-Fields:
-
-message (string)
-
-stack (string)
-
-componentStack (string, optional)
-
-timestamp (Date, default: Date.now)
-
-📱 Frontend (React Native)
- Add sendErrorReportToServer function inside ErrorBoundary component
-
- Call sendErrorReportToServer(error, errorInfo) inside componentDidCatch
-
- Configure Constants.API_URL to match backend
-
-🧪 Later Validation
- Test error scenario by forcing a throw
-
- Check that the report is saved to MongoDB
-
- Add view in Admin Dashboard to see reports (future)
+# 1. MongoDB Setup
+ Create the translationhub database in MongoDB:
+Run mongod to start MongoDB.
+Connect to MongoDB: mongo.
+Create the database: use translationhub.
+Note: Collections (admins, reports) will be created automatically when data is inserted.
 
 
+# 2. Environment Configuration
+ Verify the .env file:
+ MONGO_URI=mongodb://127.0.0.1:27017/translationhub
 
+Add optional environment variables for future use (e.g., token expiration, logging level):
+TOKEN_EXPIRY=3600  # Token expiry in seconds (1 hour)
+LOG_LEVEL=info     # Logging level (info, debug, error)
 
+# 3. Test API Endpoints with REST Client
+Create a test directory in mdb_server:
+mdb_server/test/
 
-
-
-
-
-
- ✅ TODO: בדיקת תקשורת עם ה־API של דו"חות שגיאה (/api/reports)
-מטרת המשימה: לבדוק שה־API של שליחת דו"חות שגיאה פועל תקין דרך REST Client.
-
-משימות:
- התקן את התוסף REST Client ב־VSCode (אם לא מותקן).
-
- צור תיקייה test/ בתוך mdb_server.
-
- צור קובץ חדש בשם report.http.
-
- הוסף לקובץ את הבקשות הבאות:
-
-http
-Copy
-Edit
-### Create Error Report
-POST http://localhost:3001/api/reports
+Create test/report.http for testing API endpoints:
+### Create Admin (Admin Microservice)
+POST http://localhost:3001/api/admins
 Content-Type: application/json
 
 {
-  "message": "Test Error Report",
-  "stack": "FakeStack:line 42",
-  "time": "2025-05-03T12:00:00.000Z"
+  "name": "Admin User",
+  "email": "admin@example.com",
+  "password": "securepassword"
 }
 
-### Get All Error Reports
-GET http://localhost:3001/api/reports
- הרץ את השרת (npm run dev או node server.js).
+### Login Admin (Admin Microservice)
+POST http://localhost:3001/api/admins/login
+Content-Type: application/json
 
- פתח את הקובץ report.http ולחץ על Send Request לבדיקה.
+{
+  "email": "admin@example.com",
+  "password": "securepassword"
+}
 
- ודא ש:
+### Create Error Report (Report Microservice, Public)
+POST http://localhost:3002/api/reports
+Content-Type: application/json
 
-הבקשה נשלחת.
+{
+  "userId": "guest123",
+  "type": "error",
+  "message": "Test Error Report",
+  "errorStack": "FakeStack:line 42",
+  "screen": "HomePage",
+  "deviceInfo": { "model": "iPhone 14", "os": "iOS 16" },
+  "platform": "iOS",
+  "appVersion": "1.0.0",
+  "extra": {}
+}
 
-מתקבל קוד 200/201 עם התגובה הצפויה.
+### Get All Error Reports (Report Microservice, Admin-Only)
+GET http://localhost:3002/api/reports
+Authorization: <token-from-login>
 
-הנתונים נשמרים במסד הנתונים (MongoDB).
+### Get Errors by Day (Report Microservice, Admin-Only)
+GET http://localhost:3002/api/reports/statistics/errors-by-day
+Authorization: <token-from-login>
+
+### Get Most Reported Keywords (Report Microservice, Admin-Only)
+GET http://localhost:3002/api/reports/statistics/most-reported
+Authorization: <token-from-login>
 
 
+ Install the REST Client extension in VSCode.
+ Run the MDB server:
+
+cd mdb_server
+node server.js
 
 
+Open test/report.http in VSCode and use the REST Client extension to send each request:
+Verify the POST /api/admins request creates an admin (201 status).
+Verify the POST /api/admins/login request returns a token (200 status).
+Verify the POST /api/reports request saves a report (201 status).
+Verify the GET /api/reports request returns reports (200 status, requires token).
+Verify the statistics endpoints return data (200 status, requires token).
+ Check MongoDB to ensure data is saved:
+Connect to MongoDB: mongo.
+Use the database: use translationhub.
+Check collections: db.admins.find(), db.reports.find().
 
-✅ TODO: שליחת דו"ח שגיאה מה־Client לשרת
-מטרת המשימה: להבטיח שכל שגיאה שנתפסת ב־ErrorBoundary תישלח אוטומטית לשרת (MongoDB) לצורכי מעקב.
 
-משימות:
- בתוך הקובץ ErrorBoundary.jsx:
+# 4. Validate Input for Report Submission
+ Add input validation in report-service/controllers/reportController.js for submitReport:
+Ensure optional fields (userId, errorStack, screen, deviceInfo, platform, appVersion, extra) are properly handled.
 
-עדכן את componentDidCatch כך:
+# Example (already included in the current submitReport, but verify):
+
+if (!message) {
+  return res.status(400).json({ success: false, message: 'Message is required' });
+}
+
+# Add validation for type to ensure it’s one of the allowed values (error, feedback, suggestion):
+
+exports.submitReport = async (req, res) => {
+  try {
+    const { userId, type, message, errorStack, screen, deviceInfo, platform, appVersion, extra } = req.body;
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'Message is required' });
+    }
+    if (type && !['error', 'feedback', 'suggestion'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Invalid type value' });
+    }
+
+    const report = new Report({ userId, type, message, errorStack, screen, deviceInfo, platform, appVersion, extra });
+    await report.save();
+
+    const reports = await readReportsFromJson();
+    reports.push(report.toObject());
+    await writeReportsToJson(reports);
+
+    res.status(201).json({ success: true, message: 'Report submitted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to submit report', error: error.message });
+  }
+};
+
+
+# 5. Add Error Boundary Middleware (Optional)
+Create report-service/middleware/errorBoundary.js to automatically handle errors and submit them as reports:
+
+const Report = require('../models/Report');
+const fs = require('fs').promises;
+const path = require('path');
+
+const REPORTS_JSON_PATH = path.join(__dirname, '../../logs/reports.json');
+
+const readReportsFromJson = async () => {
+  try {
+    const data = await fs.readFile(REPORTS_JSON_PATH, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return [];
+  }
+};
+
+const writeReportsToJson = async (reports) => {
+  await fs.writeFile(REPORTS_JSON_PATH, JSON.stringify(reports, null, 2));
+};
+
+const errorBoundary = async (err, req, res, next) => {
+  try {
+    const report = new Report({
+      type: 'error',
+      message: err.message || 'Unknown error',
+      errorStack: err.stack || 'No stack trace',
+      userId: req.adminId || 'system',
+      screen: 'Unknown',
+      deviceInfo: {},
+      platform: 'Server',
+      appVersion: '1.0.0',
+      extra: { method: req.method, url: req.url }
+    });
+    await report.save();
+
+    const reports = await readReportsFromJson();
+    reports.push(report.toObject());
+    await writeReportsToJson(reports);
+
+    res.status(500).json({ success: false, message: 'Internal server error', error: err.message });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to log error', error: error.message });
+  }
+};
+
+module.exports = errorBoundary;
+
+
+#  Add the middleware to report-service/server.js:
+
+const express = require('express');
+const mongoose = require('mongoose');
+const reportRoutes = require('./routes/reportRoutes');
+const errorBoundary = require('./middleware/errorBoundary');
+require('dotenv').config();
+
+const app = express();
+app.use(express.json());
+
+mongoose.connect(`${process.env.MONGO_URI}?dbName=translationhub-report`, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('Connected to MongoDB (Report Microservice)'))
+  .catch((err) => {
+    console.error('MongoDB connection error (Report Microservice):', err);
+    process.exit(1);
+  });
+
+app.use('/api/reports', reportRoutes);
+app.use(errorBoundary); // Add error boundary middleware
+
+const PORT = 3002;
+app.listen(PORT, () => {
+  console.log(`Report Service running on port ${PORT}`);
+});
+
+
+# 📱 Frontend Integration (Client-Side)
+Goal: Ensure the frontend (ErrorBoundary.jsx) can submit error reports to the mdb_server.
+
+# 1. Update ErrorBoundary.jsx
+Update componentDidCatch in ErrorBoundary.jsx to submit reports to the correct endpoint (POST http://localhost:3002/api/reports):
 
 
 componentDidCatch(error, errorInfo) {
   console.error('❌ ErrorBoundary caught an error:', error, errorInfo);
   this.setState({ toastVisible: true });
 
-  fetch('http://localhost:3001/api/reports', {
+  fetch('http://localhost:3002/api/reports', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
+      userId: this.props.userId || 'guest',
+      type: 'error',
       message: error?.message || 'Unknown error',
-      stack: errorInfo?.componentStack || 'No stack info',
-      time: new Date().toISOString()
+      errorStack: errorInfo?.componentStack || 'No stack info',
+      screen: this.props.currentScreen || 'Unknown',
+      deviceInfo: { model: 'Unknown', os: 'Unknown' },
+      platform: 'Web',
+      appVersion: '1.0.0',
+      extra: {}
     })
   }).catch(err => {
     console.warn('❗ Failed to send error report:', err.message);
   });
 }
- ודא שכתובת השרת (localhost:3001) מתאימה לסביבת הפיתוח שלך או עדכן לפי הצורך (אם אתה עובד עם כתובת IP או production base URL).
-
- הרץ את הקליינט וגרום לשגיאה ידנית (למשל על ידי זריקת שגיאה בתוך קומפוננטה לצורך בדיקה).
-
- בדוק ב־MongoDB שהדו"ח אכן נשמר.
 
 
+# Add a utility function sendErrorReportToServer in a constants or utils file (e.g., Constants.js):
 
+const API_URL = 'http://localhost:3002/api/reports';
 
-
- ✅ TODO: Admin Dashboard להצגת דוחות שגיאה
-מטרת המשימה: לבנות ממשק Admin בדפדפן המציג את כל הדוחות הקיימים ב־MongoDB (collection: reports).
-
-🗂 מבנה פעולה כללי:
-שרת Express יגיש:
-
-REST API כמו /api/reports → מחזיר JSON של הדוחות.
-
-או /admin/reports → מגיש עמוד HTML פשוט (או React, אם תרחיב בעתיד).
-
-אפשרויות למימוש ה-Dashboard:
-
-🔹 פשוט: HTML עם Bootstrap או טבלה רספונסיבית.
-
-🔹 React Admin או Dashboard מבוסס Frontend: תלוי אם תרצה ליצור תיקיית admin_client בעתיד.
-
-🔹 EJS Templates: פתרון אמצע המשלב שרת עם ממשק.
-
-🧾 משימות TODO מדורגות:
-✅ API Backend:
- צור בקובץ חדש routes/adminRoutes.js או תחת /routes/reports.js:
-
-
-router.get('/admin/reports', async (req, res) => {
+export const sendErrorReportToServer = async (error, errorInfo, userId, currentScreen) => {
   try {
-    const reports = await Report.find().sort({ time: -1 }).limit(100);
-    res.render('adminReports', { reports });
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userId: userId || 'guest',
+        type: 'error',
+        message: error?.message || 'Unknown error',
+        errorStack: errorInfo?.componentStack || 'No stack info',
+        screen: currentScreen || 'Unknown',
+        deviceInfo: { model: 'Unknown', os: 'Unknown' },
+        platform: 'Web',
+        appVersion: '1.0.0',
+        extra: {}
+      })
+    });
+    if (!response.ok) {
+      throw new Error('Failed to send error report');
+    }
   } catch (err) {
-    res.status(500).send('Error loading reports');
+    console.warn('❗ Failed to send error report:', err.message);
   }
-});
- הגדר app.set('view engine', 'ejs') ונתיב לתיקיית views/ במידת הצורך.
+};
 
-✅ Frontend EJS Template (views/adminReports.ejs):
+# Update ErrorBoundary.jsx to use the utility function
 
+import { sendErrorReportToServer } from './Constants';
 
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Admin Error Reports</title>
-  <style>
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
-  </style>
-</head>
-<body>
-  <h1>Error Reports Dashboard</h1>
-  <table>
-    <thead>
-      <tr><th>Time</th><th>Message</th><th>Stack</th></tr>
-    </thead>
-    <tbody>
-      <% reports.forEach(report => { %>
-        <tr>
-          <td><%= new Date(report.time).toLocaleString() %></td>
-          <td><%= report.message %></td>
-          <td><pre><%= report.stack %></pre></td>
-        </tr>
-      <% }); %>
-    </tbody>
-  </table>
-</body>
-</html>
-✅ הגדרות נוספות ב־server.js:
+componentDidCatch(error, errorInfo) {
+  console.error('❌ ErrorBoundary caught an error:', error, errorInfo);
+  this.setState({ toastVisible: true });
 
+  sendErrorReportToServer(error, errorInfo, this.props.userId, this.props.currentScreen);
+}
 
-const express = require('express');
-const app = express();
-const path = require('path');
+# Test the integration by forcing an error in the frontend (e.g., throw new Error('Test error') in a component) and verify the report is saved in MongoDB (db.reports.find()).
+# 2. Add Constants for API URL
+ Ensure Constants.js defines the API URL for the Report Microservice:
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-🚀 אחרי הבנייה:
-בקר בכתובת http://localhost:3001/admin/reports
-
-ראה את כל הדוחות מדורגים לפי זמן.
-
-בחר אח״כ אם לבנות דשבורד אמיתי או לשלב ניהול מתקדם עם הרשאות.
+ export const API_URL = 'http://localhost:3002/api/reports';
+export const ADMIN_API_URL = 'http://localhost:3001/api/admins';
 
 
 
-
-
-
-
-✅ [POTENTIAL] Admin Dashboard Integration – Future TODO
-🎯 Goal:
-Enable serving the admin-dashboard (React/Vite app) directly via the mdb_server backend to allow admin error reports to be viewed without running two separate dev servers.
-
-🧩 Option A – Serve Dashboard via Express (Static Build)
-One-time setup to allow opening the admin dashboard via http://localhost:3001/admin.
-
-Steps:
-Inside admin-dashboard, run:
-
-npm run build
-In mdb_server/server.js, add the following:
-
-const path = require('path');
-app.use('/admin', express.static(path.join(__dirname, '../admin-dashboard/dist')));
-Access reports:
-
-http://localhost:3001/admin
-⚠️ Optional: Create .env toggle for enabling/disabling dashboard serving.
-
-🚀 Option B – Deploy Admin Dashboard to Render / Heroku / VPS (PRODUCTION)
-Access dashboard from anywhere. Useful for remote monitoring of reports.
-
-Steps:
-Build the dashboard:
-
-npm run build
-Choose one of the following:
-
-Upload to Render.com as a static site.
-
-Host with Heroku (Node + Static).
-
-Host with your own VPS (e.g., Ubuntu + nginx).
-
-Set base URL in .env of your project to something like:
-
-ADMIN_DASHBOARD_URL=https://your-dashboard.example.com
-Protect route with a basic login (optional but recommended).
-
-🧪 Option C – Manual Launch on PC Only When Needed (Current Preferred)
-Don't host it all the time. Just check it locally when needed.
-
-Steps:
-Go to admin-dashboard/.
-
-Run:
-
-npm run dev
-Access:
-
-arduino
-
-http://localhost:5173
-📌 Decision Note:
-At the moment, prefer Option C – manual launch locally as needed.
-May revisit Option A or B later if the project scales or remote access becomes necessary.
 

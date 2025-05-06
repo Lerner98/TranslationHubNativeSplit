@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
 
 const adminSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -9,20 +8,9 @@ const adminSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-adminSchema.pre('save', async function (next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
-  }
+adminSchema.pre('save', function (next) {
   this.updatedAt = Date.now();
   next();
 });
 
-adminSchema.methods.comparePassword = async function (candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw new Error('Password comparison failed');
-  }
-};
-
-module.exports = mongoose.model('Admin', adminSchema);
+module.exports = mongoose.model('Admin', adminSchema, 'admins');

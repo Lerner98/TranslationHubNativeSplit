@@ -1,6 +1,6 @@
 const tokens = new Map();
 
-const authMiddleware = (req, res, next) => {
+exports.authMiddleware = (req, res, next) => {
   const token = req.headers['authorization'];
   if (!token) {
     return res.status(401).json({ success: false, message: 'No token provided' });
@@ -15,10 +15,8 @@ const authMiddleware = (req, res, next) => {
   next();
 };
 
-const generateToken = (adminId) => {
+exports.generateToken = (adminId) => {
   const token = `${adminId}-${Date.now()}`;
   tokens.set(token, adminId);
   return token;
 };
-
-module.exports = { authMiddleware, generateToken };
